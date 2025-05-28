@@ -1,0 +1,19 @@
+{
+  "name": "Barrage Extension",
+  "description": "Customized Barrage Extension",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "icons": {
+    "48": "barrage-icon.png"
+  },
+  "content_scripts": [
+    {
+      "js": ["src/content.ts"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "action": {
+    "default_icon": "barrage-icon.png",
+    "default_popup": "index.html"
+  }
+}
