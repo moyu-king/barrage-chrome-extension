@@ -1,12 +1,4 @@
 <script setup lang="ts">
-function playBarrage() {
-  sendMessageToContent({ type: 'play' })
-}
-
-function stopBarrage() {
-  sendMessageToContent({ type: 'stop' })
-}
-
 function sendMessageToContent(params: Record<string, any>) {
   chrome.tabs.query(
     { active: true, currentWindow: true },
@@ -18,8 +10,11 @@ function sendMessageToContent(params: Record<string, any>) {
 </script>
 
 <template>
-  <el-button type="primary" @click="playBarrage">开始</el-button>
-  <el-button type="danger" @click="stopBarrage">暂停</el-button>
+  <el-button type="primary" @click="sendMessageToContent({ type: 'play' })">开始</el-button>
+  <el-button type="warning" @click=" sendMessageToContent({ type: 'stop' })">暂停</el-button>
+  <el-button type="success" @click="sendMessageToContent({ type: 'show' })">显示</el-button>
+  <el-button type="warning" @click=" sendMessageToContent({ type: 'hidden' })">隐藏</el-button>
+  <el-button type="info" @click=" sendMessageToContent({ type: 'reset' })">重置</el-button>
 </template>
 
 <style>

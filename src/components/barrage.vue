@@ -1,37 +1,86 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import vueDanmaku from 'vue3-danmaku'
+import Danmaku from 'danmaku'
 
-const danmus = ref(['danmu1', 'danmu2', 'danmu3'])
-const danmakuEl = ref()
+let danmaku: Danmaku | null = null
+let timer: number | null = null
+
+const barrage = ref<HTMLElement>()
+const fakeMedia = reactive({ // 伪造 video
+  currentTime: 0, // s
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  paused: false,
+  playbackRate: 1,
+  play: () => {}
+})
+
+function playDanmaku() {
+  fakeMedia.currentTime += 1
+
+  if (!timer) {
+    console.log(111)
+    timer = setInterval(() => {
+      fakeMedia.currentTime += 1
+    }, 1000)
+  }
+}
+
+function stopDanmaku() {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+}
+
+function initDanmaku() {
+  if (!barrage.value || danmaku) return
+
+  danmaku = new Danmaku({
+    container: barrage.value!,
+    media: fakeMedia as any,
+    comments: [
+      { text: '第一', time: 0 },
+      { text: 'xxx，我知道你在看', time: 2 },
+    ]
+  })
+}
 
 chrome.runtime.onMessage.addListener(message => {
   switch (message.type) {
     case 'play': {
-      danmakuEl.value?.play()
+      initDanmaku()
+      playDanmaku()
       break
     }
     case 'stop': {
-      danmakuEl.value?.stop()
+      stopDanmaku()
       break
+    }
+    case 'show': {
+      danmaku?.show()
+      break
+    }
+    case 'hidden': {
+      danmaku?.hide()
+      break
+    }
+    case 'reset': {
+      stopDanmaku()
+      fakeMedia.currentTime = 0
+      danmaku?.destroy()
+      danmaku = null
     }
   }
 })
 </script>
 
 <template>
-  <vueDanmaku
-    ref="danmakuEl"
-    v-model:danmus="danmus"
-    :speeds="100"
-    :autoplay="false"
-    loop
-  ></vueDanmaku>
+  <div ref="barrage" id="crx-barrage"></div>
 </template>
 
 <style lang="scss">
-.vue-danmaku {
+#crx-barrage {
   width: 100vw;
-  height: 100px;
+  height: 100px
 }
 </style>
