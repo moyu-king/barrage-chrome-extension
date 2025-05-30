@@ -1,4 +1,35 @@
 #app {
-  width: 300px;
-  height: 200px;
+  width: 400px;
+  padding: 6px 12px;
+  border: 1px solid red;
+  overflow: hidden;
+
+  .el-segmented {
+    --el-segmented-item-selected-color: var(--el-text-color-primary);
+    --el-segmented-item-selected-bg-color: #ffd100;
+    --el-border-radius-base: 16px;
+  }
+
+  .crx-popup {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    &__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    &__title {
+      display: flex;
+      align-items: center;
+      font-size: 16px;
+      font-weight: 700;
+
+      .el-icon {
+        margin-right: 3px;
+      }
+    }
+  }
 }

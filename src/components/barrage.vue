@@ -18,7 +18,6 @@ function playDanmaku() {
   fakeMedia.currentTime += 1
 
   if (!timer) {
-    console.log(111)
     timer = setInterval(() => {
       fakeMedia.currentTime += 1
     }, 1000)
