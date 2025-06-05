@@ -1,16 +1,8 @@
 <script setup lang="ts">
 import { Setting } from '@element-plus/icons-vue'
+import { Platform, getAllVideos } from '@/service'
 
-interface Video {
-  id: number,
-  name: string,
-  platform: Platform
-}
-
-enum Platform {
-  TENCENT = 1,
-  BILIBILI
-}
+import type { Video } from '@/service'
 
 const platformToName = {
   [Platform.TENCENT]: '腾讯',
@@ -25,6 +17,10 @@ const videos = ref<Video[]>([
   { id: 1, name: '完美世界', platform: Platform.TENCENT },
   { id: 2, name: '斗破苍穹', platform: Platform.TENCENT }
 ])
+
+;(async function() {
+  videos.value = await getAllVideos()
+})()
 
 const videoGroup = computed(() => {
   return videos.value.reduce((acc, v) => {
@@ -57,7 +53,7 @@ function sendMessageToContent(params: Record<string, any>) {
   )
 }
 
-function selectVideo(vid: Video['id']) {
+async function selectVideo(vid: Video['id']) {
   selectedVideoId.value = vid
 }
 </script>

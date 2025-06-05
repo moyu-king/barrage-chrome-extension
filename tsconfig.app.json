@@ -1,7 +1,12 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
   "compilerOptions": {
-    /* Linting */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    },
     "types": ["chrome"],
     "strict": true,
     "noUnusedLocals": true,

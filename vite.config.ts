@@ -10,10 +10,22 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { resolve } from 'node:path'
 
 export default defineConfig({
+  resolve: {
+    alias: [
+      { find: /^@\/(.+)/, replacement: resolve(__dirname, 'src/$1') }
+    ]
+  },
   server: {
     cors: true,
     host: '0.0.0.0',
-    origin: 'http://127.0.0.1:5173'
+    origin: 'http://127.0.0.1:5173',
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      }
+    }
   },
   plugins: [
     vue(),
