@@ -9,7 +9,7 @@
   "content_scripts": [
     {
       "js": ["src/content.ts"],
-      "matches": ["<all_urls>"]
+      "matches": ["http://127.0.0.1:5173/*", "http://localhost:5173/*"]
     }
   ],
   "action": {
