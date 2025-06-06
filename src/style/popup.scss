@@ -1,14 +1,8 @@
 #app {
-  width: 400px;
+  width: 350px;
   padding: 6px 12px;
   border: 1px solid rgba(0, 0, 0, 15%);
   overflow: hidden;
-
-  .el-segmented {
-    --el-segmented-item-selected-color: var(--el-text-color-primary);
-    --el-segmented-item-selected-bg-color: #ffd100;
-    --el-border-radius-base: 16px;
-  }
 
   .crx-popup {
     display: flex;
@@ -30,6 +24,10 @@
       .el-icon {
         margin-right: 3px;
       }
+    }
+
+    &__content {
+      height: 300px;
     }
   }
 }

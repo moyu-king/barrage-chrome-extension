@@ -1,48 +1,15 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
 import { Setting } from '@element-plus/icons-vue'
-import { Platform, getAllVideos } from '@/service'
-
-import type { Video } from '@/service'
-
-const platformToName = {
-  [Platform.TENCENT]: '腾讯',
-  [Platform.BILIBILI]: 'bilibili'
-}
+import { usePopupStore } from '@/store'
+import EpisodeList from './episode-list.vue'
+import VideoList from './video-list.vue'
 
 const prefix = 'crx-popup'
-const isOpen = ref(false)
-const activeMenu = ref(Platform.TENCENT)
-const selectedVideoId = ref<Video['id']>()
-const videos = ref<Video[]>([
-  { id: 1, name: '完美世界', platform: Platform.TENCENT },
-  { id: 2, name: '斗破苍穹', platform: Platform.TENCENT }
-])
+const popupStore = usePopupStore()
+const { selectedVideoId } = storeToRefs(popupStore)
 
-;(async function() {
-  videos.value = await getAllVideos()
-})()
-
-const videoGroup = computed(() => {
-  return videos.value.reduce((acc, v) => {
-    const key = v.platform
-
-    if (!acc[key]) {
-      acc[key] = []
-    }
-
-    acc[key].push(v)
-    return acc
-  }, {} as Record<Platform, Video[]>)
-})
-const menus = computed(() => {
-  return (Object.keys(videoGroup.value)).map(key => ({
-    value: parseInt(key),
-    label: (platformToName as Record<string, any>)[key]
-  }))
-})
-const currMenuVideos = computed(() => {
-  return videoGroup.value[activeMenu.value] ?? []
-})
+popupStore.initState()
 
 function sendMessageToContent(params: Record<string, any>) {
   chrome.tabs.query(
@@ -51,10 +18,6 @@ function sendMessageToContent(params: Record<string, any>) {
       chrome.tabs.sendMessage(tabs[0].id!, params)
     }
   )
-}
-
-async function selectVideo(vid: Video['id']) {
-  selectedVideoId.value = vid
 }
 </script>
 
@@ -67,22 +30,13 @@ async function selectVideo(vid: Video['id']) {
         </el-icon>
         <span>控制面板</span>
       </div>
-      <el-switch v-model="isOpen" />
     </div>
-    <el-segmented v-model="activeMenu" :options="menus" />
-    <el-scrollbar ref="scrollbarRef" height="200px">
-      <div :class="`${prefix}__videos`">
-        <el-button
-          v-for="video in currMenuVideos"
-          :key="video.id"
-          :type="selectedVideoId === video.id ? 'primary': undefined"
-          class="video-item"
-          @click="selectVideo(video.id)"
-          >
-            {{ video.name }}
-      </el-button>
-      </div>
-    </el-scrollbar>
+    <div :class="`${prefix}__content`">
+      <Transition name="vxp-fade">
+        <VideoList v-if="!selectedVideoId"></VideoList>
+        <EpisodeList v-else></EpisodeList>
+      </Transition>
+    </div>
     <div :class="`${prefix}__control`">
       <el-button type="primary" @click="sendMessageToContent({ type: 'play' })">开始</el-button>
       <el-button type="warning" @click=" sendMessageToContent({ type: 'stop' })">暂停</el-button>
