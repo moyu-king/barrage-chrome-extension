@@ -1,12 +1,15 @@
 import { instance } from './base'
 
+import type { BaseResponse } from './base'
+
 export interface Barrage {
+  up_count: number,
   time_offset: number,
   content: string,
+  content_score: number,
+  content_style: string
 }
 
-export async function getAllBarrages(): Promise<Barrage[]> {
-  const data = await instance.post('/tencent/barrage?duration=30') as { data: { barrages: Barrage[] } }[]
-
-  return data.flatMap(item => item.data.barrages)
+export async function getAllBarrages(vid: string, duration: number, filter = true): Promise<BaseResponse<Barrage[]>> {
+  return await instance.get(`/tencent/barrage?duration=${duration}&vid=${vid}&filter=${filter}`)
 }

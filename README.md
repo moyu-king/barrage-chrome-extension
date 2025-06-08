@@ -1,6 +1,6 @@
 # Barrage Chrome Extension
 
-一个使用[vue3](https://cn.vuejs.org/)及[@crxjs/vite-plugin](https://github.com/crxjs/chrome-extension-tools)插件开发的chrome拓展程序。（开发中）
+一个使用[vue3](https://cn.vuejs.org/)及[@crxjs/vite-plugin](https://github.com/crxjs/chrome-extension-tools)插件开发的chrome拓展程序。
 
 ```bash
 # 1. 安装依赖

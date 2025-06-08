@@ -6,10 +6,17 @@
   "icons": {
     "48": "barrage-icon.png"
   },
+  "permissions": [
+    "storage"
+  ],
   "content_scripts": [
     {
-      "js": ["src/content.ts"],
-      "matches": ["http://127.0.0.1:5173/*", "http://localhost:5173/*"]
+      "js": [
+        "src/background.ts"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "action": {

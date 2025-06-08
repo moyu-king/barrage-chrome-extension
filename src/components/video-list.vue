@@ -7,14 +7,19 @@ import type { Video } from '@/service'
 
 const activeMenu = defineModel<Platform>('active', { default: Platform.TENCENT })
 const prefix = 'crx-video-list'
-const popupStore = usePopupStore()
-const { videoGroup, selectedVideoId, platformMenus } = storeToRefs(popupStore)
+const loadingId = ref()
+const store = usePopupStore()
+const { videoGroup, selectedVideoId, platformMenus } = storeToRefs(store)
 
 const currMenuVideos = computed(() => {
   return videoGroup.value[activeMenu.value] ?? []
 })
 
 async function selectVideo(vid: Video['id']) {
+ loadingId.value = vid
+  await store.getVideoEpisode(vid)
+  loadingId.value = undefined
+  await nextTick()
   selectedVideoId.value = vid
 }
 </script>
@@ -23,15 +28,16 @@ async function selectVideo(vid: Video['id']) {
   <div :class="prefix">
     <el-segmented v-model="activeMenu" :options="platformMenus" />
     <el-scrollbar ref="scrollbarRef" style="flex: 1;">
-      <div :class="`${prefix}__videos`">
+      <div :class="`${prefix}__wrapper`">
         <el-button
-            v-for="video in currMenuVideos"
-            :key="video.id"
-            :type="selectedVideoId === video.id ? 'primary': undefined"
-            class="video-item"
-            @click="selectVideo(video.id)"
-          >
-            {{ video.name }}
+          v-for="video in currMenuVideos"
+          :key="video.id"
+          :type="selectedVideoId === video.id ? 'primary': undefined"
+          :loading="loadingId === video.id"
+          class="video-item"
+          @click="selectVideo(video.id)"
+        >
+          {{ video.name }}
         </el-button>
       </div>
     </el-scrollbar>
@@ -52,6 +58,25 @@ async function selectVideo(vid: Video['id']) {
     --el-border-radius-base: 16px;
 
     width: 100%;
+  }
+
+  &__wrapper {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+
+    .el-button {
+      display: block;
+      padding: 5px;
+      margin: 0;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+
+      & > span {
+        display: inline;
+      }
+    }
   }
 }
 </style>

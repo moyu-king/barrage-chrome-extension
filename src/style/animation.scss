@@ -1,0 +1,24 @@
+/**
+ * 基于animate.css的vue过渡效果
+ */
+
+@use 'animate.css/source/fading_entrances/fadeInLeft.css';
+@use 'animate.css/source/fading_entrances/fadeInRight.css';
+
+// 命名规则：[transition-name]-enter-active， [transition-name]-leave-active，通常成队出现
+// 同方向进出动画
+.fade-in-right-enter-active {
+  animation: fadeInRight var(--animation-duration, 300ms) forwards;
+}
+
+.fade-in-right-leave-active {
+  animation: fadeInLeft var(--animation-duration, 300ms) reverse;
+}
+
+.fade-in-left-enter-active {
+  animation: fadeInLeft var(--animation-duration, 300ms) forwards;
+}
+
+.fade-in-left-leave-active {
+  animation: fadeInRight var(--animation-duration, 300ms) reverse;
+}

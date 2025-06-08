@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import Danmaku from 'danmaku'
-import { getAllBarrages } from '@/service'
-
-import type { Barrage } from '@/service'
+import { useBackgroundStore } from '@/store'
+import { storeToRefs } from 'pinia'
 
 let danmaku: Danmaku | null = null
 let timer: number | null = null
 
+const prefix = 'crx-barrage'
+const dialog = ref<HTMLElement>()
 const barrageEl = ref<HTMLElement>()
-const barrages = ref<Barrage[]>([])
-const visible = ref(false)
+const selectedVId = ref('')
 const fakeMedia = reactive<HTMLMediaElement>({
   // 伪造 video elements
   currentTime: 0, // s
@@ -20,21 +20,29 @@ const fakeMedia = reactive<HTMLMediaElement>({
   play: () => {}
 } as any)
 
+const store = useBackgroundStore()
+const { barragesMap } = storeToRefs(store)
+
 const comments = computed(() => {
-  return barrages.value.map(item => ({
-    text: item.content,
-    time: Number(item.time_offset) / 1000,
-    style: {
-      fontSize: '14px',
-    },
-  }))
+  const barrages = barragesMap.value.get(selectedVId.value)
+
+  if (!barrages) return []
+
+  const data = barrages.map(item => ({
+      text: item.content,
+      time: Number(item.time_offset) / 1000,
+      style: {
+        fontSize: '14px',
+        color: '#fff'
+      },
+    }))
+
+  return data
 })
 
-getBarrage()
-
-async function getBarrage() {
-  barrages.value = await getAllBarrages()
-}
+watch(() => fakeMedia.currentTime, time => {
+  chrome.storage.local.set({ timerTime: time })
+})
 
 function playDanmaku() {
   fakeMedia.currentTime += 1
@@ -46,6 +54,19 @@ function playDanmaku() {
   }
 }
 
+function initDanmaku() {
+  if (!barrageEl.value || danmaku) return
+
+  danmaku = new Danmaku({
+    container: barrageEl.value!,
+    media: fakeMedia,
+    comments: comments.value
+  })
+
+  dialog.value?.showPopover()
+  danmaku.resize()
+}
+
 function stopDanmaku() {
   if (timer) {
     clearInterval(timer)
@@ -53,20 +74,28 @@ function stopDanmaku() {
   }
 }
 
-function initDanmaku() {
-  if (!barrageEl.value || danmaku) return
+function destroyDanmaku(resetTime = true) {
+  stopDanmaku()
+  danmaku?.destroy()
+  danmaku = null
 
-  danmaku = new Danmaku({
-    container: barrageEl.value!,
-    media: fakeMedia,
-    comments: comments.value,
-    speed: 100
-  })
+  if (resetTime) {
+    fakeMedia.currentTime = 0
+  }
 }
 
-chrome.runtime.onMessage.addListener(message => {
+chrome.runtime.onMessage.addListener(async message => {
   switch (message.type) {
     case 'play': {
+      const { vid, duration } = message
+      const minus = Number(duration) / 60
+
+      if (typeof minus !== 'number') return
+
+      await store.getBarrages(vid, Math.ceil(minus))
+      selectedVId.value = vid
+
+      destroyDanmaku(false)
       initDanmaku()
       playDanmaku()
       break
@@ -84,37 +113,49 @@ chrome.runtime.onMessage.addListener(message => {
       break
     }
     case 'reset': {
-      stopDanmaku()
-      fakeMedia.currentTime = 0
-      danmaku?.destroy()
-      danmaku = null
+      destroyDanmaku()
       break
     }
-    case 'getTime': {
-      stopDanmaku()
+    case 'changeTime': {
       fakeMedia.currentTime = message.time
-      playDanmaku()
       break
     }
-    case 'visible': {
-      visible.value = message.display ?? false
-    }
+  }
+})
+
+/* ==================== 全屏处理 ==================== */
+document.addEventListener('fullscreenchange', () => {
+  if (!dialog.value) return
+
+  if (document.fullscreenElement) {
+    dialog.value.hidePopover()
+    dialog.value.showPopover()
+    danmaku?.resize()
   }
 })
 </script>
 
 <template>
-  <div id="crx-barrage">
-    <div v-show="!visible" ref="barrageEl" id="crx-barrage__content"></div>
+  <div ref="dialog" :class="prefix" popover="manual">
+    <div ref="barrageEl" :class="`${prefix}__content`"></div>
   </div>
 </template>
 
 <style lang="scss">
-#crx-barrage {
+.crx-barrage {
+  margin: 0;
+  padding: 0;
+  border-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  background-color: transparent;
+
   &__content {
-    width: 100vw;
-    height: 300px;
-    line-height: 24px;
+    width: calc(100vw + 150px);
+    height: calc(100vh / 3);
+    line-height: 28px;
+    background-color: transparent;
   }
 }
 </style>

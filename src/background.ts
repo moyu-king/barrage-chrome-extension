@@ -1,11 +1,12 @@
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
 import Barrage from './components/barrage.vue'
 
-import './style/content.scss'
+import './style/index.scss'
 
 const root = document.createElement('div')
 
 root.id = 'crx-root'
 document.body.append(root)
 
-createApp(Barrage).mount(root)
+createApp(Barrage).use(createPinia()).mount(root)

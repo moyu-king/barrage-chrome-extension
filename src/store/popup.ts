@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import { Platform, getAllVideos } from '@/service'
+import { Platform, getAllVideos, getEpisodes } from '@/service'
 
-import type { Video } from '@/service'
+import type { Video, Episode } from '@/service'
 
 export const platformToName = {
   [Platform.TENCENT]: '腾讯',
@@ -10,7 +10,9 @@ export const platformToName = {
 
 export const usePopupStore = defineStore('popupStore', () => {
   const videos = ref<Video[]>([])
+  const episodesMap = ref({} as Record<Video['id'], Episode[]>)
   const selectedVideoId = ref<Video['id']>()
+    const selectedEpisode = ref<Episode | null>(null)
 
   const videoGroup = computed(() => {
     return videos.value.reduce((acc, v) => {
@@ -25,6 +27,10 @@ export const usePopupStore = defineStore('popupStore', () => {
     }, {} as Record<Platform, Video[]>)
   })
 
+  const videoMap = computed(() => {
+    return new Map(videos.value.map(v => [v.id, v]))
+  })
+
   const platformMenus = computed(() => {
     return (Object.keys(videoGroup.value)).map(key => ({
       value: parseInt(key),
@@ -32,15 +38,35 @@ export const usePopupStore = defineStore('popupStore', () => {
     }))
   })
 
-  async function initState() {
-    videos.value = await getAllVideos()
+  async function getVideos(disableCache = false) {
+    if (videos.value.length && !disableCache) return
+
+    const response = await getAllVideos()
+
+    videos.value = response.data
   }
 
+  async function getVideoEpisode(id: Video['id'], disableCache = false) {
+    if (episodesMap.value[id] && !disableCache) return
+
+    const response = await getEpisodes(id)
+
+    episodesMap.value[id] = response.data
+  }
+
+  // 计时器传递
+  const timerTime = ref(0) //s
+
   return {
-    selectedVideoId,
+    timerTime,
+    episodesMap,
     platformMenus,
+    selectedVideoId,
+    selectedEpisode,
     videos,
+    videoMap,
     videoGroup,
-    initState
+    getVideos,
+    getVideoEpisode
   }
 })
