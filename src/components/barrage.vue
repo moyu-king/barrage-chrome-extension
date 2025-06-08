@@ -3,6 +3,8 @@ import Danmaku from 'danmaku'
 import { useBackgroundStore } from '@/store'
 import { storeToRefs } from 'pinia'
 
+import type { Barrage } from '@/service'
+
 let danmaku: Danmaku | null = null
 let timer: number | null = null
 
@@ -24,20 +26,30 @@ const store = useBackgroundStore()
 const { barragesMap } = storeToRefs(store)
 
 const comments = computed(() => {
+  const existTimeMap = new Map<number, number>()
   const barrages = barragesMap.value.get(selectedVId.value)
 
   if (!barrages) return []
 
-  const data = barrages.map(item => ({
-      text: item.content,
-      time: Number(item.time_offset) / 1000,
-      style: {
-        fontSize: '14px',
-        color: '#fff'
-      },
-    }))
+  const data = [] as Barrage[]
 
-  return data
+  barrages.forEach(barrage => {
+    let count = existTimeMap.get(barrage.time_offset)
+
+    if (count && count >= 4) return
+
+    existTimeMap.set(barrage.time_offset, count ? count + 1 : 1)
+    data.push(barrage)
+  })
+
+  return data.map(item => ({
+    text: item.content,
+    time: Number(item.time_offset) / 1000,
+    style: {
+      fontSize: '14px',
+      color: '#fff'
+    },
+  }))
 })
 
 watch(() => fakeMedia.currentTime, time => {
@@ -153,7 +165,7 @@ document.addEventListener('fullscreenchange', () => {
 
   &__content {
     width: calc(100vw + 150px);
-    height: calc(100vh / 3);
+    height: calc(100vh / 4);
     line-height: 28px;
     background-color: transparent;
   }
