@@ -2,24 +2,23 @@
 import { Setting } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
 import { usePopupStore } from '@/store'
-import { sendMessageToContent } from '@/utils'
+import { sendMsgToContent } from '@/utils'
 import EpisodeList from './episode-list.vue'
 import VideoList from './video-list.vue'
 
 const prefix = 'crx-popup'
+const playLoading = ref(false)
 const popupStore = usePopupStore()
 const { selectedVideoId, selectedEpisode, timerTime } = storeToRefs(popupStore)
 
 popupStore.getVideos()
 
-chrome.storage?.local.get('timerTime', (result) => {
-  timerTime.value = result.timerTime || 0
-})
-
-chrome.storage?.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.timerTime) {
-    timerTime.value = changes.timerTime.newValue
-  }
+chrome.runtime.onMessage.addListener(async (message, sender) => {
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    if (message.type === 'time' && sender.tab?.id === tab?.id) {
+      timerTime.value = message.time || 0
+    }
+  })
 })
 
 const time = reactive({
@@ -35,7 +34,7 @@ watch(timerTime, () => {
 function handleMinuteChange(val?: number) {
   time.minute = val ?? 0
 
-  sendMessageToContent({
+  sendMsgToContent({
     type: 'changeTime',
     time: time.minute * 60 + time.second,
   })
@@ -44,7 +43,7 @@ function handleMinuteChange(val?: number) {
 function handleSecondChange(val?: number) {
   time.second = val ?? 0
 
-  sendMessageToContent({
+  sendMsgToContent({
     type: 'changeTime',
     time: time.minute * 60 + time.second,
   })
@@ -55,11 +54,13 @@ function playBarrages() {
     return
 
   const { vid, duration } = selectedEpisode.value
-
-  sendMessageToContent({
+  playLoading.value = true
+  sendMsgToContent({
     type: 'play',
     vid,
     duration,
+  }, (_) => {
+    playLoading.value = false
   })
 }
 </script>
@@ -105,13 +106,14 @@ function playBarrages() {
         <el-button
           type="primary"
           :disabled="!selectedEpisode"
+          :loading="playLoading"
           @click="playBarrages"
         >
           播放
         </el-button>
         <el-button
           type="warning"
-          @click="sendMessageToContent({ type: 'reset' })"
+          @click="sendMsgToContent({ type: 'reset' })"
         >
           重置
         </el-button>

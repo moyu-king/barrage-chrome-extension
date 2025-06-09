@@ -6,6 +6,6 @@ export default antfu({
   vue: true, // 如果是 Vue 项目
   rules: {
     // 自定义规则
-    'no-console': 'off', // 允许 console.log
+    'no-console': 'off',
   },
 })

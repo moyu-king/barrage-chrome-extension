@@ -37,7 +37,7 @@ const comments = computed(() => {
   barrages.forEach((barrage) => {
     const count = existTimeMap.get(barrage.time_offset)
 
-    if (count && count >= 4)
+    if (count && count >= 3)
       return
 
     existTimeMap.set(barrage.time_offset, count ? count + 1 : 1)
@@ -55,7 +55,7 @@ const comments = computed(() => {
 })
 
 watch(() => fakeMedia.currentTime, (time) => {
-  chrome.storage.local.set({ timerTime: time })
+  chrome.runtime.sendMessage({ type: 'time', time })
 })
 
 function playDanmaku() {
@@ -99,7 +99,7 @@ function destroyDanmaku(resetTime = true) {
   }
 }
 
-chrome.runtime.onMessage.addListener(async (message) => {
+chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
   switch (message.type) {
     case 'play': {
       const { vid, duration } = message
@@ -114,6 +114,7 @@ chrome.runtime.onMessage.addListener(async (message) => {
       destroyDanmaku(false)
       initDanmaku()
       playDanmaku()
+      sendResponse(true)
       break
     }
     case 'stop': {
