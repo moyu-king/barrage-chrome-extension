@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import Danmaku from 'danmaku'
-import { useBackgroundStore } from '@/store'
-import { storeToRefs } from 'pinia'
-
 import type { Barrage } from '@/service'
+
+import Danmaku from 'danmaku'
+import { storeToRefs } from 'pinia'
+import { useContentStore } from '@/store'
 
 let danmaku: Danmaku | null = null
 let timer: number | null = null
@@ -19,24 +19,26 @@ const fakeMedia = reactive<HTMLMediaElement>({
   removeEventListener: () => {},
   paused: false,
   playbackRate: 1,
-  play: () => {}
+  play: () => {},
 } as any)
 
-const store = useBackgroundStore()
+const store = useContentStore()
 const { barragesMap } = storeToRefs(store)
 
 const comments = computed(() => {
   const existTimeMap = new Map<number, number>()
   const barrages = barragesMap.value.get(selectedVId.value)
 
-  if (!barrages) return []
+  if (!barrages)
+    return []
 
   const data = [] as Barrage[]
 
-  barrages.forEach(barrage => {
-    let count = existTimeMap.get(barrage.time_offset)
+  barrages.forEach((barrage) => {
+    const count = existTimeMap.get(barrage.time_offset)
 
-    if (count && count >= 4) return
+    if (count && count >= 4)
+      return
 
     existTimeMap.set(barrage.time_offset, count ? count + 1 : 1)
     data.push(barrage)
@@ -46,13 +48,13 @@ const comments = computed(() => {
     text: item.content,
     time: Number(item.time_offset) / 1000,
     style: {
-      fontSize: '14px',
-      color: '#fff'
+      fontSize: '16px',
+      color: '#fff',
     },
   }))
 })
 
-watch(() => fakeMedia.currentTime, time => {
+watch(() => fakeMedia.currentTime, (time) => {
   chrome.storage.local.set({ timerTime: time })
 })
 
@@ -67,12 +69,13 @@ function playDanmaku() {
 }
 
 function initDanmaku() {
-  if (!barrageEl.value || danmaku) return
+  if (!barrageEl.value || danmaku)
+    return
 
   danmaku = new Danmaku({
     container: barrageEl.value!,
     media: fakeMedia,
-    comments: comments.value
+    comments: comments.value,
   })
 
   dialog.value?.showPopover()
@@ -96,13 +99,14 @@ function destroyDanmaku(resetTime = true) {
   }
 }
 
-chrome.runtime.onMessage.addListener(async message => {
+chrome.runtime.onMessage.addListener(async (message) => {
   switch (message.type) {
     case 'play': {
       const { vid, duration } = message
       const minus = Number(duration) / 60
 
-      if (typeof minus !== 'number') return
+      if (typeof minus !== 'number')
+        return
 
       await store.getBarrages(vid, Math.ceil(minus))
       selectedVId.value = vid
@@ -137,7 +141,8 @@ chrome.runtime.onMessage.addListener(async message => {
 
 /* ==================== 全屏处理 ==================== */
 document.addEventListener('fullscreenchange', () => {
-  if (!dialog.value) return
+  if (!dialog.value)
+    return
 
   if (document.fullscreenElement) {
     dialog.value.hidePopover()
@@ -149,7 +154,7 @@ document.addEventListener('fullscreenchange', () => {
 
 <template>
   <div ref="dialog" :class="prefix" popover="manual">
-    <div ref="barrageEl" :class="`${prefix}__content`"></div>
+    <div ref="barrageEl" :class="`${prefix}__content`" />
   </div>
 </template>
 
@@ -166,7 +171,7 @@ document.addEventListener('fullscreenchange', () => {
   &__content {
     width: calc(100vw + 150px);
     height: calc(100vh / 4);
-    line-height: 28px;
+    line-height: 30px;
     background-color: transparent;
   }
 }

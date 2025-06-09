@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import type { Video } from '@/service'
+
+import { storeToRefs } from 'pinia'
 import { Platform } from '@/service'
 import { usePopupStore } from '@/store'
-import { storeToRefs } from 'pinia'
-
-import type { Video } from '@/service'
 
 const activeMenu = defineModel<Platform>('active', { default: Platform.TENCENT })
 const prefix = 'crx-video-list'
@@ -16,7 +16,7 @@ const currMenuVideos = computed(() => {
 })
 
 async function selectVideo(vid: Video['id']) {
- loadingId.value = vid
+  loadingId.value = vid
   await store.getVideoEpisode(vid)
   loadingId.value = undefined
   await nextTick()
@@ -27,12 +27,12 @@ async function selectVideo(vid: Video['id']) {
 <template>
   <div :class="prefix">
     <el-segmented v-model="activeMenu" :options="platformMenus" />
-    <el-scrollbar ref="scrollbarRef" style="flex: 1;">
+    <el-scrollbar style="flex: 1;">
       <div :class="`${prefix}__wrapper`">
         <el-button
           v-for="video in currMenuVideos"
           :key="video.id"
-          :type="selectedVideoId === video.id ? 'primary': undefined"
+          :type="selectedVideoId === video.id ? 'primary' : undefined"
           :loading="loadingId === video.id"
           class="video-item"
           @click="selectVideo(video.id)"

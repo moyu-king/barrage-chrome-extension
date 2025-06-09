@@ -1,12 +1,12 @@
-import { instance } from './base'
-
 import type { BaseResponse } from './base'
 
+import { instance } from './base'
+
 export interface Episode {
-  cid: string,
-  vid: string,
-  union_title: string,
-  title: string,
+  cid: string
+  vid: string
+  union_title: string
+  title: string
   duration: number
 }
 

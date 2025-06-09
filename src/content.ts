@@ -1,5 +1,5 @@
-import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { createApp } from 'vue'
 import Barrage from './components/barrage.vue'
 
 import './style/index.scss'

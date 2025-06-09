@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
-import { ArrowLeftBold } from '@element-plus/icons-vue'
-import { usePopupStore } from '@/store'
-
 import type { Episode } from '@/service'
+
+import { ArrowLeftBold } from '@element-plus/icons-vue'
+import { storeToRefs } from 'pinia'
+import { usePopupStore } from '@/store'
 
 const prefix = 'crx-episode'
 const store = usePopupStore()
@@ -11,16 +11,18 @@ const {
   selectedVideoId,
   selectedEpisode,
   episodesMap,
-  videoMap
+  videoMap,
 } = storeToRefs(store)
 
 const episodes = computed(() => {
-  if (typeof selectedVideoId.value !== 'number') return []
+  if (typeof selectedVideoId.value !== 'number')
+    return []
 
   return episodesMap.value[selectedVideoId.value] ?? []
 })
 const videoName = computed(() => {
-  if (typeof selectedVideoId.value !== 'number') return '???'
+  if (typeof selectedVideoId.value !== 'number')
+    return '???'
   const video = videoMap.value.get(selectedVideoId.value)
 
   return video?.name ?? '???'
@@ -40,7 +42,9 @@ function backVideoList() {
     <div :class="`${prefix}__header`">
       <div :class="`${prefix}__header-left`" @click="backVideoList">
         <el-icon><ArrowLeftBold /></el-icon>
-        <div style="margin-left: 5px;">{{ videoName }}</div>
+        <div style="margin-left: 5px;">
+          {{ videoName }}
+        </div>
       </div>
     </div>
     <el-scrollbar>
@@ -48,12 +52,12 @@ function backVideoList() {
         <el-button
           v-for="episode in episodes"
           :key="episode.vid"
-          :type="selectedEpisode?.vid === episode.vid ? 'primary': undefined"
+          :type="selectedEpisode?.vid === episode.vid ? 'primary' : undefined"
           class="episode-item"
           @click="selectEpisode(episode)"
         >
           {{ episode.title }}
-      </el-button>
+        </el-button>
       </div>
     </el-scrollbar>
   </div>

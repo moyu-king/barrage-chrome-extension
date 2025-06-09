@@ -1,18 +1,19 @@
-import { defineStore } from 'pinia'
-import { Platform, getAllVideos, getEpisodes } from '@/service'
+import type { Episode, Video } from '@/service'
 
-import type { Video, Episode } from '@/service'
+import { defineStore } from 'pinia'
+import { getAllVideos, getEpisodes, Platform } from '@/service'
 
 export const platformToName = {
   [Platform.TENCENT]: '腾讯',
-  [Platform.BILIBILI]: 'bilibili'
+  [Platform.BILIBILI]: 'bilibili',
 }
 
 export const usePopupStore = defineStore('popupStore', () => {
   const videos = ref<Video[]>([])
   const episodesMap = ref({} as Record<Video['id'], Episode[]>)
   const selectedVideoId = ref<Video['id']>()
-    const selectedEpisode = ref<Episode | null>(null)
+  const selectedEpisode = ref<Episode | null>(null)
+  const timerTime = ref(0) // s
 
   const videoGroup = computed(() => {
     return videos.value.reduce((acc, v) => {
@@ -33,13 +34,14 @@ export const usePopupStore = defineStore('popupStore', () => {
 
   const platformMenus = computed(() => {
     return (Object.keys(videoGroup.value)).map(key => ({
-      value: parseInt(key),
-      label: (platformToName as Record<string, any>)[key]
+      value: Number.parseInt(key),
+      label: (platformToName as Record<string, any>)[key],
     }))
   })
 
   async function getVideos(disableCache = false) {
-    if (videos.value.length && !disableCache) return
+    if (videos.value.length && !disableCache)
+      return
 
     const response = await getAllVideos()
 
@@ -47,15 +49,13 @@ export const usePopupStore = defineStore('popupStore', () => {
   }
 
   async function getVideoEpisode(id: Video['id'], disableCache = false) {
-    if (episodesMap.value[id] && !disableCache) return
+    if (episodesMap.value[id] && !disableCache)
+      return
 
     const response = await getEpisodes(id)
 
     episodesMap.value[id] = response.data
   }
-
-  // 计时器传递
-  const timerTime = ref(0) //s
 
   return {
     timerTime,
@@ -67,6 +67,6 @@ export const usePopupStore = defineStore('popupStore', () => {
     videoMap,
     videoGroup,
     getVideos,
-    getVideoEpisode
+    getVideoEpisode,
   }
 })

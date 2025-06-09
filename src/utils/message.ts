@@ -1,8 +1,8 @@
-export function sendMessageToContent(params: {type: string} & Record<string, any>) {
+export function sendMessageToContent(params: { type: string } & Record<string, any>) {
   chrome.tabs.query(
     { active: true, currentWindow: true },
-    tabs => {
+    (tabs) => {
       chrome.tabs.sendMessage(tabs[0].id!, params)
-    }
+    },
   )
 }

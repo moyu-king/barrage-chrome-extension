@@ -1,13 +1,14 @@
+import type { Barrage } from '@/service'
+
 import { defineStore } from 'pinia'
 import { getAllBarrages } from '@/service'
 
-import type { Barrage } from '@/service'
-
-export const useBackgroundStore = defineStore('backgroundStore', () => {
+export const useContentStore = defineStore('contentStore', () => {
   const barragesMap = ref(new Map<string, Barrage[]>())
 
   async function getBarrages(id: string, duration = 30, disabledCache = false) {
-    if (barragesMap.value.has(id) && !disabledCache) return
+    if (barragesMap.value.has(id) && !disabledCache)
+      return
 
     const response = await getAllBarrages(id, duration)
 
@@ -16,6 +17,6 @@ export const useBackgroundStore = defineStore('backgroundStore', () => {
 
   return {
     barragesMap,
-    getBarrages
+    getBarrages,
   }
 })

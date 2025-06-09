@@ -1,12 +1,12 @@
-import { instance } from './base'
-
 import type { BaseResponse } from './base'
 
+import { instance } from './base'
+
 export interface Barrage {
-  up_count: number,
-  time_offset: number,
-  content: string,
-  content_score: number,
+  up_count: number
+  time_offset: number
+  content: string
+  content_score: number
   content_style: string
 }
 

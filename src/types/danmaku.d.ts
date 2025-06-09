@@ -40,7 +40,5 @@ declare module 'danmaku' {
     hide(): void
     resize(): void
     destroy(): void
-
-    readonly comments: DanmakuItem[]
   }
 }

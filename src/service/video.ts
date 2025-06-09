@@ -1,15 +1,15 @@
-import { instance } from './base'
-
 import type { BaseResponse } from './base'
+
+import { instance } from './base'
 
 export enum Platform {
   TENCENT = 1,
-  BILIBILI
+  BILIBILI,
 }
 export interface Video {
-  id: number,
-  name: string,
-  platform: Platform,
+  id: number
+  name: string
+  platform: Platform
   params: Record<string, any>
 }
 

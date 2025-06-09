@@ -11,12 +11,8 @@
   ],
   "content_scripts": [
     {
-      "js": [
-        "src/background.ts"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
+      "js": ["src/content.ts"],
+      "matches": ["<all_urls>"]
     }
   ],
   "action": {

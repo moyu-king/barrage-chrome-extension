@@ -1,8 +1,8 @@
 {
   "name": "barrage-extension",
-  "private": true,
-  "version": "1.0.0",
   "type": "module",
+  "version": "1.0.0",
+  "private": true,
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -25,6 +25,8 @@
     "@crxjs/vite-plugin": "2.0.0-beta.33",
     "@types/chrome": "^0.0.323",
     "@types/node": "^22.15.24",
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
     "@vitejs/plugin-vue": "^5.2.3",
     "@vue/tsconfig": "^0.7.0",
     "eslint": "^9.27.0",

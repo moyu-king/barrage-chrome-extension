@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
 import { Setting } from '@element-plus/icons-vue'
+import { storeToRefs } from 'pinia'
 import { usePopupStore } from '@/store'
 import { sendMessageToContent } from '@/utils'
 import EpisodeList from './episode-list.vue'
@@ -12,7 +12,7 @@ const { selectedVideoId, selectedEpisode, timerTime } = storeToRefs(popupStore)
 
 popupStore.getVideos()
 
-chrome.storage?.local.get('timerTime', result => {
+chrome.storage?.local.get('timerTime', (result) => {
   timerTime.value = result.timerTime || 0
 })
 
@@ -24,20 +24,20 @@ chrome.storage?.onChanged.addListener((changes, area) => {
 
 const time = reactive({
   minute: 0,
-  second: 0
+  second: 0,
 })
 
 watch(timerTime, () => {
-  time.minute = Math.floor(timerTime.value / 60),
+  time.minute = Math.floor(timerTime.value / 60)
   time.second = timerTime.value % 60
 })
 
 function handleMinuteChange(val?: number) {
   time.minute = val ?? 0
 
-   sendMessageToContent({
+  sendMessageToContent({
     type: 'changeTime',
-    time: time.minute * 60 + time.second
+    time: time.minute * 60 + time.second,
   })
 }
 
@@ -46,19 +46,20 @@ function handleSecondChange(val?: number) {
 
   sendMessageToContent({
     type: 'changeTime',
-    time: time.minute * 60 + time.second
+    time: time.minute * 60 + time.second,
   })
 }
 
 function playBarrages() {
-  if (!selectedEpisode.value) return
+  if (!selectedEpisode.value)
+    return
 
   const { vid, duration } = selectedEpisode.value
 
   sendMessageToContent({
     type: 'play',
     vid,
-    duration
+    duration,
   })
 }
 </script>
@@ -75,30 +76,30 @@ function playBarrages() {
     </div>
     <div :class="`${prefix}__content`">
       <Transition :name=" selectedVideoId === undefined ? 'fade-in-left' : 'fade-in-right'" mode="out-in">
-        <VideoList v-if="!selectedVideoId"></VideoList>
-        <EpisodeList v-else></EpisodeList>
+        <VideoList v-if="!selectedVideoId" />
+        <EpisodeList v-else />
       </Transition>
     </div>
     <div :class="`${prefix}__control`">
       <div :class="`${prefix}__timer`">
-          <el-input-number
-            :model-value="time.minute"
-            :controls="false"
-            :max="999"
-            :min="0"
-            :disabled="!selectedEpisode"
-            @change="handleMinuteChange"
-            />
-          <span>:</span>
-          <el-input-number
-            :model-value="time.second"
-            :controls="false"
-            :step="1"
-            :max="59"
-            :min="0"
-            :disabled="!selectedEpisode"
-            @change="handleSecondChange"
-          />
+        <el-input-number
+          :model-value="time.minute"
+          :controls="false"
+          :max="999"
+          :min="0"
+          :disabled="!selectedEpisode"
+          @change="handleMinuteChange"
+        />
+        <span>:</span>
+        <el-input-number
+          :model-value="time.second"
+          :controls="false"
+          :step="1"
+          :max="59"
+          :min="0"
+          :disabled="!selectedEpisode"
+          @change="handleSecondChange"
+        />
       </div>
       <div :class="`${prefix}__buttons`">
         <el-button
