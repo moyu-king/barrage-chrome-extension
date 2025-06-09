@@ -26,6 +26,19 @@ const time = reactive({
   second: 0,
 })
 
+const maxTime = computed(() => {
+  const max = { minus: 999, second: 59 }
+
+  if (!selectedEpisode.value) {
+    return max
+  }
+
+  const { duration } = selectedEpisode.value
+  max.minus = Math.ceil(Number(duration) / 60)
+
+  return max
+})
+
 watch(timerTime, () => {
   time.minute = Math.floor(timerTime.value / 60)
   time.second = timerTime.value % 60
@@ -86,7 +99,7 @@ function playBarrages() {
         <el-input-number
           :model-value="time.minute"
           :controls="false"
-          :max="999"
+          :max="maxTime.minus"
           :min="0"
           :disabled="!selectedEpisode"
           @change="handleMinuteChange"
@@ -95,8 +108,7 @@ function playBarrages() {
         <el-input-number
           :model-value="time.second"
           :controls="false"
-          :step="1"
-          :max="59"
+          :max="maxTime.second"
           :min="0"
           :disabled="!selectedEpisode"
           @change="handleSecondChange"

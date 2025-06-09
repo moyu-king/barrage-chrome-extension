@@ -12,6 +12,7 @@ const prefix = 'crx-barrage'
 const dialog = ref<HTMLElement>()
 const barrageEl = ref<HTMLElement>()
 const selectedVId = ref('')
+const mediaDuration = ref(0)
 const fakeMedia = reactive<HTMLMediaElement>({
   // 伪造 video elements
   currentTime: 0, // s
@@ -64,6 +65,9 @@ function playDanmaku() {
   if (!timer) {
     timer = setInterval(() => {
       fakeMedia.currentTime += 1
+      if (mediaDuration.value < fakeMedia.currentTime) {
+        stopDanmaku()
+      }
     }, 1000)
   }
 }
@@ -89,12 +93,13 @@ function stopDanmaku() {
   }
 }
 
-function destroyDanmaku(resetTime = true) {
+function destroyDanmaku(resetPlayer = true) {
   stopDanmaku()
   danmaku?.destroy()
   danmaku = null
 
-  if (resetTime) {
+  if (resetPlayer) {
+    mediaDuration.value = 0
     fakeMedia.currentTime = 0
   }
 }
@@ -109,7 +114,9 @@ chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
         return
 
       await store.getBarrages(vid, Math.ceil(minus))
+
       selectedVId.value = vid
+      mediaDuration.value = duration
 
       destroyDanmaku(false)
       initDanmaku()
