@@ -34,6 +34,7 @@ async function selectVideo(vid: Video['id']) {
           :key="video.id"
           :type="selectedVideoId === video.id ? 'primary' : undefined"
           :loading="loadingId === video.id"
+          :title="video.name"
           class="video-item"
           @click="selectVideo(video.id)"
         >
@@ -58,6 +59,7 @@ async function selectVideo(vid: Video['id']) {
     --el-border-radius-base: 16px;
 
     width: 100%;
+    padding-right: 10px;
   }
 
   &__wrapper {

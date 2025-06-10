@@ -20,6 +20,7 @@ const episodes = computed(() => {
 
   return episodesMap.value[selectedVideoId.value] ?? []
 })
+
 const videoName = computed(() => {
   if (typeof selectedVideoId.value !== 'number')
     return '???'
@@ -34,6 +35,17 @@ function selectEpisode(episode: Episode) {
 
 function backVideoList() {
   selectedVideoId.value = undefined
+}
+
+function getEpisodeTitle(episode: Episode) {
+  const { union_title, title, duration } = episode
+  return Number(duration) < 60 * 5 ? union_title : title
+}
+
+function episodeItemClass(episode: Episode) {
+  const titleLen = getEpisodeTitle(episode).length
+
+  return titleLen < 5 ? '' : titleLen > 10 ? 'large-item' : 'wide-item'
 }
 </script>
 
@@ -53,10 +65,12 @@ function backVideoList() {
           v-for="episode in episodes"
           :key="episode.vid"
           :type="selectedEpisode?.vid === episode.vid ? 'primary' : undefined"
+          :title="getEpisodeTitle(episode)"
+          :class="episodeItemClass(episode)"
           class="episode-item"
           @click="selectEpisode(episode)"
         >
-          {{ episode.title }}
+          {{ getEpisodeTitle(episode) }}
         </el-button>
       </div>
     </el-scrollbar>
@@ -99,6 +113,14 @@ function backVideoList() {
       text-overflow: ellipsis;
       white-space: nowrap;
       overflow: hidden;
+
+      &.wide-item {
+        grid-column: span 2;
+      }
+
+      &.large-item {
+        grid-column: span 3;
+      }
 
       & > span {
         display: inline;

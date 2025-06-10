@@ -136,7 +136,7 @@ function playBarrages() {
 
 <style lang="scss">
 #app {
-  width: 380px;
+  width: 400px;
   overflow: hidden;
 }
 

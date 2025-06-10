@@ -5,10 +5,11 @@
 目前弹幕服务暂无在公网部署，需自行在本地启动弹幕服务，[仓库地址](https://github.com/moyu-king/barrage-service)。
 
 插件面板截图：
-![视频列表](/img/video-list.jpg)
 
-![剧集列表](/img/episode-list.jpg)
+![视频列表](/images//video-list.jpg)
 
-![弹幕](/img/barrage.jpg)
+![剧集列表](/images//episode-list.jpg)
+
+![弹幕](/images//barrage.jpg)
 
 > 目前仅支持腾讯视频
