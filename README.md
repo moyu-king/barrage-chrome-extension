@@ -1,14 +1,14 @@
 # Barrage Chrome Extension
 
-一个使用[vue3](https://cn.vuejs.org/)及[@crxjs/vite-plugin](https://github.com/crxjs/chrome-extension-tools)插件开发的chrome拓展程序。
+一个使用[vue3](https://cn.vuejs.org/)及[@crxjs/vite-plugin](https://github.com/crxjs/chrome-extension-tools)插件开发的chrome拓展程序。给予『无宗门背景的散修』游历于各大视频资源平台时弹幕支持。
 
-```bash
-# 1. 安装依赖
-pnpm i
+目前弹幕服务暂无在公网部署，需自行在本地启动弹幕服务，[仓库地址](https://github.com/moyu-king/barrage-service)。
 
-# 2. 打包生成dist文件夹
-pnpm run build
+插件面板截图：
+![视频列表](/img/video-list.jpg)
 
-# 3. 启动开发服务
-pnpm run dev
-```
+![剧集列表](/img/episode-list.jpg)
+
+![弹幕](/img/barrage.jpg)
+
+> 目前仅支持腾讯视频
