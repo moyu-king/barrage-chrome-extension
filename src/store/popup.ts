@@ -50,11 +50,13 @@ export const usePopupStore = defineStore('popupStore', () => {
 
   async function getVideoEpisode(id: Video['id'], disableCache = false) {
     if (episodesMap.value[id] && !disableCache)
-      return
+      return []
 
     const response = await getEpisodes(id)
 
     episodesMap.value[id] = response.data
+
+    return response.data
   }
 
   return {

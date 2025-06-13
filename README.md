@@ -4,12 +4,15 @@
 
 目前弹幕服务暂无在公网部署，需自行在本地启动弹幕服务，[仓库地址](https://github.com/moyu-king/barrage-service)。
 
-插件面板截图：
+#### 1. 使用：
+[下载压缩包](https://github.com/moyu-king/barrage-service/releases)，解压完后，在chrome的拓展程序界面点击**加载已解压的扩展程序**，并选中解压后的文件夹。（需请先勾选开发者模式）
 
-![视频列表](/images//video-list.jpg)
+#### 2. 插件面板截图：
 
-![剧集列表](/images//episode-list.jpg)
+![视频列表](/images/video-list.jpg)
 
-![弹幕](/images//barrage.jpg)
+![剧集列表](/images/episode-list.jpg)
 
-> 目前仅支持腾讯视频
+![弹幕](/images/barrage.jpg)
+
+> 目前仅支持腾讯视频，bilibili正在计划中

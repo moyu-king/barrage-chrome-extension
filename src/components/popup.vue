@@ -8,15 +8,34 @@ import VideoList from './video-list.vue'
 
 const prefix = 'crx-popup'
 const playLoading = ref(false)
-const popupStore = usePopupStore()
-const { selectedVideoId, selectedEpisode, timerTime } = storeToRefs(popupStore)
-
-popupStore.getVideos()
+const store = usePopupStore()
+const { selectedVideoId, selectedEpisode, timerTime } = storeToRefs(store)
 
 chrome.runtime.onMessage.addListener(async (message, sender) => {
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
     if (message.type === 'time' && sender.tab?.id === tab?.id) {
       timerTime.value = message.time || 0
+    }
+  })
+})
+
+store.getVideos().then(() => {
+  sendMsgToContent({
+    type: 'init',
+  }, async (message) => {
+    if (!message.videoId) {
+      return
+    }
+
+    selectedVideoId.value = message.videoId
+    const episodes = await store.getVideoEpisode(message.videoId)
+
+    if (episodes?.length) {
+      const episode = episodes.find(episode => episode.vid === message.vid)
+
+      if (episode) {
+        selectedEpisode.value = episode
+      }
     }
   })
 })
@@ -27,7 +46,7 @@ const time = reactive({
 })
 
 const maxTime = computed(() => {
-  const max = { minus: 999, second: 59 }
+  const max: Record<string, number | undefined> = { minus: undefined, second: 59, duration: 60 * 60 }
 
   if (!selectedEpisode.value) {
     return max
@@ -35,6 +54,7 @@ const maxTime = computed(() => {
 
   const { duration } = selectedEpisode.value
   max.minus = Math.ceil(Number(duration) / 60)
+  max.duration = Number(duration)
 
   return max
 })
@@ -43,6 +63,17 @@ watch(timerTime, () => {
   time.minute = Math.floor(timerTime.value / 60)
   time.second = timerTime.value % 60
 })
+
+function formatTooltip(_: number) {
+  return `${time.minute} : ${time.second}`
+}
+
+function handleTimeChange() {
+  sendMsgToContent({
+    type: 'changeTime',
+    time: timerTime.value,
+  })
+}
 
 function handleMinuteChange(val?: number) {
   time.minute = val ?? 0
@@ -70,6 +101,7 @@ function playBarrages() {
   playLoading.value = true
   sendMsgToContent({
     type: 'play',
+    videoId: selectedVideoId.value,
     vid,
     duration,
   }, (_) => {
@@ -95,40 +127,54 @@ function playBarrages() {
       </Transition>
     </div>
     <div :class="`${prefix}__control`">
-      <div :class="`${prefix}__timer`">
-        <el-input-number
-          :model-value="time.minute"
-          :controls="false"
-          :max="maxTime.minus"
-          :min="0"
-          :disabled="!selectedEpisode"
-          @change="handleMinuteChange"
-        />
-        <span>:</span>
-        <el-input-number
-          :model-value="time.second"
-          :controls="false"
-          :max="maxTime.second"
-          :min="0"
-          :disabled="!selectedEpisode"
-          @change="handleSecondChange"
-        />
-      </div>
       <div :class="`${prefix}__buttons`">
         <el-button
-          type="primary"
           :disabled="!selectedEpisode"
           :loading="playLoading"
+          type="primary"
+          size="small"
           @click="playBarrages"
         >
           播放
         </el-button>
         <el-button
           type="warning"
+          size="small"
           @click="sendMsgToContent({ type: 'reset' })"
         >
           重置
         </el-button>
+      </div>
+      <div :class="`${prefix}__timer`">
+        <el-slider
+          v-model="timerTime"
+          :min="0"
+          :max="maxTime.duration"
+          :disabled="!selectedEpisode"
+          :format-tooltip="formatTooltip"
+          @change="handleTimeChange"
+        />
+        <div style="display: flex;">
+          <el-input-number
+            :model-value="time.minute"
+            :controls="false"
+            :max="maxTime.minus"
+            :min="0"
+            :disabled="!selectedEpisode"
+            size="small"
+            @change="handleMinuteChange"
+          />
+          <span style="margin: 0 5px;">:</span>
+          <el-input-number
+            :model-value="time.second"
+            :controls="false"
+            :max="maxTime.second"
+            :min="0"
+            :disabled="!selectedEpisode"
+            size="small"
+            @change="handleSecondChange"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -171,24 +217,33 @@ function playBarrages() {
 
   &__control {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
     border-top: 1px solid rgba(0, 0, 0, 15%);
-    padding: 10px;
+    padding: 10px 30px;
+
+    .el-slider__button {
+      width: 12px;
+      height: 12px;
+    }
   }
 
   &__timer {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 12px;
+    width: 100%;
 
     .el-input__wrapper {
       padding: 0 5px !important;
     }
 
     .el-input-number {
-      width: 2.5rem;
+      width: 2rem;
+    }
+
+    .el-input__inner {
+      font-size: 12px;
     }
   }
 

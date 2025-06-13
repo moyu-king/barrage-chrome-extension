@@ -11,7 +11,8 @@ let timer: number | null = null
 const prefix = 'crx-barrage'
 const dialog = ref<HTMLElement>()
 const barrageEl = ref<HTMLElement>()
-const selectedVId = ref('')
+const selectedVId = ref('') // 视频的id
+const selectedVideoId = ref('') // 整个视频系列的id
 const mediaDuration = ref(0)
 const fakeMedia = reactive<HTMLMediaElement>({
   // 伪造 video elements
@@ -107,7 +108,7 @@ function destroyDanmaku(resetPlayer = true) {
 chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
   switch (message.type) {
     case 'play': {
-      const { vid, duration } = message
+      const { vid, duration, videoId } = message
       const minus = Number(duration) / 60
 
       if (typeof minus !== 'number')
@@ -115,6 +116,7 @@ chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
 
       await store.getBarrages(vid, Math.ceil(minus))
 
+      selectedVideoId.value = videoId
       selectedVId.value = vid
       mediaDuration.value = duration
 
@@ -142,6 +144,10 @@ chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
     }
     case 'changeTime': {
       fakeMedia.currentTime = message.time
+      break
+    }
+    case 'init': {
+      sendResponse({ vid: selectedVId.value, videoId: selectedVideoId.value })
       break
     }
   }
