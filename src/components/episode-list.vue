@@ -20,6 +20,18 @@ const episodes = computed(() => {
 
   return episodesMap.value[selectedVideoId.value] ?? []
 })
+const episodesGroup = computed(() => {
+  return episodes.value.reduce((acc, v) => {
+    const key = v.session
+
+    if (!acc[key]) {
+      acc[key] = []
+    }
+
+    acc[key].push(v)
+    return acc
+  }, {} as Record<string, Episode[]>)
+})
 
 const videoName = computed(() => {
   if (typeof selectedVideoId.value !== 'number')
@@ -45,7 +57,7 @@ function getEpisodeTitle(episode: Episode) {
 function episodeItemClass(episode: Episode) {
   const titleLen = getEpisodeTitle(episode).length
 
-  return titleLen < 5 ? '' : titleLen > 10 ? 'large-item' : 'wide-item'
+  return titleLen < 5 ? '' : titleLen >= 12 ? 'plus-item' : titleLen >= 8 ? 'large-item' : 'wide-item'
 }
 </script>
 
@@ -60,19 +72,24 @@ function episodeItemClass(episode: Episode) {
       </div>
     </div>
     <el-scrollbar>
-      <div :class="`${prefix}__wrapper`">
-        <el-button
-          v-for="episode in episodes"
-          :key="episode.vid"
-          :type="selectedEpisode?.vid === episode.vid ? 'primary' : undefined"
-          :title="getEpisodeTitle(episode)"
-          :class="episodeItemClass(episode)"
-          class="episode-item"
-          @click="selectEpisode(episode)"
-        >
-          {{ getEpisodeTitle(episode) }}
-        </el-button>
-      </div>
+      <template v-for="(items, session) in episodesGroup" :key="session">
+        <div v-if="Object.keys(episodesGroup).length > 1" :class="`${prefix}__session`">
+          {{ session }}
+        </div>
+        <div :class="`${prefix}__wrapper`">
+          <el-button
+            v-for="episode in items"
+            :key="episode.vid"
+            :type="selectedEpisode?.vid === episode.vid ? 'primary' : undefined"
+            :title="getEpisodeTitle(episode)"
+            :class="episodeItemClass(episode)"
+            class="episode-item"
+            @click="selectEpisode(episode)"
+          >
+            {{ getEpisodeTitle(episode) }}
+          </el-button>
+        </div>
+      </template>
     </el-scrollbar>
   </div>
 </template>
@@ -101,6 +118,15 @@ function episodeItemClass(episode: Episode) {
     }
   }
 
+  &__session {
+    font-size: 16px;
+    padding: 15px 5px;
+
+    &:first-child {
+      padding-top: 0;
+    }
+  }
+
   &__wrapper {
     display: grid;
     gap: 15px;
@@ -120,6 +146,10 @@ function episodeItemClass(episode: Episode) {
 
       &.large-item {
         grid-column: span 3;
+      }
+
+      &.plus-item {
+        grid-column: span 4;
       }
 
       & > span {
