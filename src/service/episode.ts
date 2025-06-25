@@ -8,7 +8,7 @@ export interface Episode {
   union_title: string
   title: string
   duration: number
-  session: string
+  season: string
 }
 
 export async function getEpisodes(id: number): Promise<BaseResponse<Episode[]>> {

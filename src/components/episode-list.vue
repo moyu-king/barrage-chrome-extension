@@ -22,7 +22,7 @@ const episodes = computed(() => {
 })
 const episodesGroup = computed(() => {
   return episodes.value.reduce((acc, v) => {
-    const key = v.session
+    const key = v.season
 
     if (!acc[key]) {
       acc[key] = []
@@ -72,9 +72,9 @@ function episodeItemClass(episode: Episode) {
       </div>
     </div>
     <el-scrollbar>
-      <template v-for="(items, session) in episodesGroup" :key="session">
-        <div v-if="Object.keys(episodesGroup).length > 1" :class="`${prefix}__session`">
-          {{ session }}
+      <template v-for="(items, season) in episodesGroup" :key="season">
+        <div v-if="Object.keys(episodesGroup).length > 1" :class="`${prefix}__season`">
+          {{ season }}
         </div>
         <div :class="`${prefix}__wrapper`">
           <el-button
@@ -118,7 +118,7 @@ function episodeItemClass(episode: Episode) {
     }
   }
 
-  &__session {
+  &__season {
     font-size: 16px;
     padding: 15px 5px;
 
