@@ -12,5 +12,5 @@ export interface Episode {
 }
 
 export async function getEpisodes(id: number): Promise<BaseResponse<Episode[]>> {
-  return await instance.get(`/tencent/episode/${id}`)
+  return await instance.get(`/tencent/episode?id=${id}`)
 }
