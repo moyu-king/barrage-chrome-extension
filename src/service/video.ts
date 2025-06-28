@@ -14,5 +14,5 @@ export interface Video {
 }
 
 export async function getAllVideos(): Promise<BaseResponse<Video[]>> {
-  return instance.get('/videos')
+  return instance.get('/video/all')
 }

@@ -1,15 +1,22 @@
 import type { BaseResponse } from './base'
+import type { Platform } from './video'
 
 import { instance } from './base'
 
 export interface Barrage {
-  up_count: number
-  time_offset: number
+  offset: number // ms
   content: string
-  content_score: number
-  content_style: string
+  weight: number
+  style: string
 }
 
-export async function getAllBarrages(vid: string, duration: number, filter = true): Promise<BaseResponse<Barrage[]>> {
-  return await instance.get(`/tencent/barrage?duration=${duration}&vid=${vid}&filter=${filter}`)
+export interface BarrageParams {
+  vid: string
+  duration: number // ms
+  filter: boolean
+  platform: Platform
+}
+
+export async function getAllBarrages(params: BarrageParams): Promise<BaseResponse<Barrage[]>> {
+  return await instance.get('/proxy/barrage', { params })
 }

@@ -37,18 +37,18 @@ const comments = computed(() => {
   const data = [] as Barrage[]
 
   barrages.forEach((barrage) => {
-    const count = existTimeMap.get(barrage.time_offset)
+    const count = existTimeMap.get(barrage.offset)
 
     if (count && count >= 3)
       return
 
-    existTimeMap.set(barrage.time_offset, count ? count + 1 : 1)
+    existTimeMap.set(barrage.offset, count ? count + 1 : 1)
     data.push(barrage)
   })
 
   return data.map(item => ({
     text: item.content,
-    time: Number(item.time_offset) / 1000,
+    time: Number(item.offset) / 1000,
     style: {
       fontSize: '16px',
       color: '#fff',
@@ -108,13 +108,9 @@ function destroyDanmaku(resetPlayer = true) {
 chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
   switch (message.type) {
     case 'play': {
-      const { vid, duration, videoId } = message
-      const minus = Number(duration) / 60
+      const { vid, duration, videoId, platform } = message
 
-      if (typeof minus !== 'number')
-        return
-
-      await store.getBarrages(vid, Math.ceil(minus))
+      await store.getBarrages({ vid, duration, platform, filter: true })
 
       selectedVideoId.value = videoId
       selectedVId.value = vid

@@ -9,7 +9,7 @@ import VideoList from './video-list.vue'
 const prefix = 'crx-popup'
 const playLoading = ref(false)
 const store = usePopupStore()
-const { selectedVideoId, selectedEpisode, timerTime } = storeToRefs(store)
+const { selectedVideoId, selectedEpisode, timerTime, videoMap } = storeToRefs(store)
 
 chrome.runtime.onMessage.addListener(async (message, sender) => {
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
@@ -28,7 +28,13 @@ store.getVideos().then(() => {
     }
 
     selectedVideoId.value = message.videoId
-    const episodes = await store.getVideoEpisode(message.videoId)
+    const video = videoMap.value.get(message.videoId)
+
+    if (!video) {
+      return
+    }
+
+    const episodes = await store.getVideoEpisode(message.videoId, video.platform)
 
     if (episodes?.length) {
       const episode = episodes.find(episode => episode.vid === message.vid)
@@ -53,8 +59,8 @@ const maxTime = computed(() => {
   }
 
   const { duration } = selectedEpisode.value
-  max.minus = Math.ceil(Number(duration) / 60)
-  max.duration = Number(duration)
+  max.minus = Math.ceil(duration / (60 * 1000))
+  max.duration = Math.ceil(duration / 1000)
 
   return max
 })
@@ -94,14 +100,22 @@ function handleSecondChange(val?: number) {
 }
 
 function playBarrages() {
-  if (!selectedEpisode.value)
+  if (!selectedEpisode.value || !selectedVideoId.value) {
     return
+  }
 
   const { vid, duration } = selectedEpisode.value
+  const video = videoMap.value.get(selectedVideoId.value)
+
+  if (!video) {
+    return
+  }
+
   playLoading.value = true
   sendMsgToContent({
     type: 'play',
-    videoId: selectedVideoId.value,
+    videoId: video.id,
+    platform: video.platform,
     vid,
     duration,
   }, (_) => {

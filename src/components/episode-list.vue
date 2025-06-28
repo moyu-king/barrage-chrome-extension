@@ -51,7 +51,7 @@ function backVideoList() {
 
 function getEpisodeTitle(episode: Episode) {
   const { union_title, title, duration } = episode
-  return Number(duration) < 60 * 5 ? union_title : title
+  return Number(duration) < 60 * 1000 * 3 ? union_title : title // 小于3分钟视为预告片
 }
 
 function episodeItemClass(episode: Episode) {

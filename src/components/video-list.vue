@@ -15,9 +15,9 @@ const currMenuVideos = computed(() => {
   return videoGroup.value[activeMenu.value] ?? []
 })
 
-async function selectVideo(vid: Video['id']) {
+async function selectVideo(vid: Video['id'], platform: Video['platform']) {
   loadingId.value = vid
-  await store.getVideoEpisode(vid)
+  await store.getVideoEpisode(vid, platform)
   loadingId.value = undefined
   await nextTick()
   selectedVideoId.value = vid
@@ -36,7 +36,7 @@ async function selectVideo(vid: Video['id']) {
           :loading="loadingId === video.id"
           :title="video.name"
           class="video-item"
-          @click="selectVideo(video.id)"
+          @click="selectVideo(video.id, video.platform)"
         >
           {{ video.name }}
         </el-button>
