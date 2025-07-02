@@ -6,8 +6,17 @@
   "icons": {
     "48": "barrage-icon.png"
   },
+  "background": {
+    "service_worker": "src/background.ts"
+  },
   "permissions": [
-    "storage"
+    "storage",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": [
+    "*://*.qq.com/*",
+    "*://*.bilibili.com/*"
   ],
   "content_scripts": [
     {
