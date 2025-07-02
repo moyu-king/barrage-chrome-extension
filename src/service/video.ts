@@ -1,29 +1,48 @@
-import type { BaseResponse } from './base'
+import type { BaseResponse, Video, Platform } from './base'
 
-import { instance } from './base'
-
-export enum Platform {
-  TENCENT = 1,
-  BILIBILI,
-}
+import { getDB } from './base'
 
 export interface VideoCreateOpt {
   name: string
-  params: string
-  platform: Platform
-}
-
-export interface Video {
-  id: number
-  name: string
-  platform: Platform
   params: Record<string, any>
+  platform: Platform
 }
 
-export async function getAllVideos(): Promise<BaseResponse<Video[]>> {
-  return instance.get('/video/all')
+export async function getAllVideos() {
+  const resp = {
+    status: 1,
+    message: 'success',
+    data: []
+  } as BaseResponse<Video[]>
+
+  try {
+    const db = await getDB()
+    const videos = await db.getAll('videos')
+
+    resp.data = videos
+  } catch (e) {
+    resp.status = 0
+    resp.message = (e as Error).message
+  }
+
+  return resp
 }
 
-export async function createVideo(data: VideoCreateOpt): Promise<BaseResponse<Video>> {
-  return instance.post('video', data)
+export async function createVideo(data: VideoCreateOpt) {
+  const resp = {
+    status: 1,
+    message: 'success',
+    data: {}
+  } as BaseResponse<Video>
+
+  try {
+    const db = await getDB()
+    const id = await db.add('videos', { ...data })
+    resp.data = { ...data, id }
+  } catch (e) {
+    resp.status = 0
+    resp.message = (e as Error).message
+  }
+
+  return resp
 }

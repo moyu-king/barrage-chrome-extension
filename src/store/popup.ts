@@ -10,7 +10,7 @@ export const platformToName = {
 
 export const usePopupStore = defineStore('popupStore', () => {
   const videos = ref<Video[]>([])
-  const episodesMap = ref({} as Record<Video['id'], Episode[]>)
+  const episodesMap = ref(new Map<number, Episode[]>())
   const selectedVideoId = ref<Video['id']>()
   const selectedEpisode = ref<Episode | null>(null)
   const timerTime = ref(0) // s
@@ -44,17 +44,17 @@ export const usePopupStore = defineStore('popupStore', () => {
       return
 
     const response = await getAllVideos()
-
+    console.log(response.data)
     videos.value = response.data
   }
 
-  async function getVideoEpisode(id: Video['id'], platform: Video['platform'], disableCache = false) {
-    if (episodesMap.value[id] && !disableCache)
+  async function getVideoEpisode(id: number, disableCache = false) {
+    if (episodesMap.value.get(id) && !disableCache)
       return []
 
-    const response = await getEpisodes(id, platform)
-
-    episodesMap.value[id] = response.data
+    const response = await getEpisodes(id)
+    console.log(response.data)
+    episodesMap.value.set(id, response.data)
 
     return response.data
   }

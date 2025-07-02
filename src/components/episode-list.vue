@@ -18,7 +18,7 @@ const episodes = computed(() => {
   if (typeof selectedVideoId.value !== 'number')
     return []
 
-  return episodesMap.value[selectedVideoId.value] ?? []
+  return episodesMap.value.get(selectedVideoId.value) ?? []
 })
 const episodesGroup = computed(() => {
   return episodes.value.reduce((acc, v) => {
