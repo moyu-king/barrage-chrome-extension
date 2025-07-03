@@ -53,7 +53,7 @@ export const usePopupStore = defineStore('popupStore', () => {
       return []
 
     const response = await getEpisodes(id)
-    console.log(response.data)
+
     episodesMap.value.set(id, response.data)
 
     return response.data

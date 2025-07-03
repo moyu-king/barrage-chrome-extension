@@ -6,6 +6,7 @@ output
 coverage
 public
 temp
+src/protobuf/**/*
 __snapshots__
 
 .*rc.js

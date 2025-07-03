@@ -12,11 +12,13 @@
   "permissions": [
     "storage",
     "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess"
+    "declarativeNetRequestWithHostAccess",
+    "declarativeNetRequestFeedback"
   ],
   "host_permissions": [
     "*://*.qq.com/*",
-    "*://*.bilibili.com/*"
+    "*://*.bilibili.com/*",
+    "*://api.bilibili.com/*"
   ],
   "content_scripts": [
     {

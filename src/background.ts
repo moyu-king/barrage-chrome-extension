@@ -1,3 +1,6 @@
+import { getAllBarrages, getAllVideos, getEpisodes } from '@/service'
+
+// 请求拦截
 const rules = [
   {
     id: 1,
@@ -8,49 +11,75 @@ const rules = [
         {
           header: 'referer',
           operation: 'set',
-          value: 'https://v.qq.com'
-        }
-      ]
+          value: 'https://v.qq.com',
+        },
+      ],
     },
     condition: {
       urlFilter: 'video.qq.com',
-      resourceTypes: ['xmlhttprequest']
-    }
+      resourceTypes: ['xmlhttprequest'],
+    },
+  },
+  {
+    id: 2,
+    priority: 1,
+    action: {
+      type: 'modifyHeaders',
+      requestHeaders: [
+        {
+          header: 'referer',
+          operation: 'set',
+          value: 'https://www.bilibili.com',
+        },
+      ],
+    },
+    condition: {
+      urlFilter: 'bilibili.com',
+      resourceTypes: ['xmlhttprequest'],
+    },
   },
 ] as Array<chrome.declarativeNetRequest.Rule>
 
-chrome.runtime.onInstalled.addListener(() => {
+export enum MessageType {
+  GET_VIDEOS,
+  GET_EPISODES,
+  GET_BARRAGES
+}
+
+chrome.runtime.onInstalled.addListener(async () => {
   chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [1],
+    removeRuleIds: [1, 2],
     addRules: rules,
   })
 
-  fetch('https://pbaccess.video.qq.com/trpc.universal_backend_service.page_server_rpc.PageServer/GetPageData?video_appid=3000010&vplatform=2&vversion_name=8.2.96', {
-    method: 'POST',
-    body: JSON.stringify({
-      page_params: {
-        req_from: 'web_vsite',
-        page_id: 'vsite_episode_list',
-        page_type: 'detail_operation',
-        id_type: '1',
-        page_size: '',
-        cid: 'mzc00200z195unq',
-        vid: 'i4101vrl7tu',
-        lid: '',
-        page_num: '',
-        page_context: '',
-        detail_page_type: '1',
-      },
-      has_cache: 1,
-    }),
-  })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+  chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
+    console.log(message)
+    switch (message.type) {
+      case MessageType.GET_VIDEOS: {
+        const response = await getAllVideos()
+        sendResponse(response.data)
+        break
       }
-      return response.json()
-    })
-    .then((data) => {
-      console.log('响应数据', data)
-    })
+      case MessageType.GET_BARRAGES: {
+        const { params } = message
+        if (!params) {
+          sendResponse([])
+        } else {
+          const response = await getAllBarrages(params)
+          sendResponse(response.data)
+        }
+        break
+      }
+      case MessageType.GET_EPISODES: {
+        const { id } = message
+        if (!id) {
+          sendResponse([])
+        } else {
+          const response = await getEpisodes(id)
+          sendResponse(response.data)
+        }
+        break
+      }
+    }
+  })
 })

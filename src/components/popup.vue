@@ -23,7 +23,7 @@ store.getVideos().then(() => {
   sendMsgToContent({
     type: 'init',
   }, async (message) => {
-    if (!message.videoId) {
+    if (!message?.videoId) {
       return
     }
 
@@ -34,7 +34,7 @@ store.getVideos().then(() => {
       return
     }
 
-    const episodes = await store.getVideoEpisode(message.videoId, video.platform)
+    const episodes = await store.getVideoEpisode(message.videoId)
 
     if (episodes?.length) {
       const episode = episodes.find(episode => episode.vid === message.vid)
@@ -112,6 +112,7 @@ function playBarrages() {
   }
 
   playLoading.value = true
+  console.log(1111)
   sendMsgToContent({
     type: 'play',
     videoId: video.id,
