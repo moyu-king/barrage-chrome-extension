@@ -1,7 +1,7 @@
 import type { Episode, Video } from '@/service'
 
 import { defineStore } from 'pinia'
-import { getAllVideos, getEpisodes, Platform } from '@/service'
+import { getEpisodes, Platform } from '@/service'
 
 export const platformToName = {
   [Platform.TENCENT]: '腾讯',
@@ -39,15 +39,6 @@ export const usePopupStore = defineStore('popupStore', () => {
     }))
   })
 
-  async function getVideos(disableCache = false) {
-    if (videos.value.length && !disableCache)
-      return
-
-    const response = await getAllVideos()
-    console.log(response.data)
-    videos.value = response.data
-  }
-
   async function getVideoEpisode(id: number, disableCache = false) {
     if (episodesMap.value.get(id) && !disableCache)
       return []
@@ -68,7 +59,6 @@ export const usePopupStore = defineStore('popupStore', () => {
     videos,
     videoMap,
     videoGroup,
-    getVideos,
     getVideoEpisode,
   }
 })

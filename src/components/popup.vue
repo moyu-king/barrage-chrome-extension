@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Setting } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
+import { MessageType } from '@/background'
 import { usePopupStore } from '@/store'
 import { sendMsgToContent } from '@/utils'
 import EpisodeList from './episode-list.vue'
@@ -9,7 +10,7 @@ import VideoList from './video-list.vue'
 const prefix = 'crx-popup'
 const playLoading = ref(false)
 const store = usePopupStore()
-const { selectedVideoId, selectedEpisode, timerTime, videoMap } = storeToRefs(store)
+const { selectedVideoId, selectedEpisode, timerTime, videoMap, videos } = storeToRefs(store)
 
 chrome.runtime.onMessage.addListener(async (message, sender) => {
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
@@ -19,7 +20,9 @@ chrome.runtime.onMessage.addListener(async (message, sender) => {
   })
 })
 
-store.getVideos().then(() => {
+chrome.runtime.sendMessage({ type: MessageType.GET_VIDEOS }, (response) => {
+  videos.value = response
+
   sendMsgToContent({
     type: 'init',
   }, async (message) => {
@@ -112,7 +115,7 @@ function playBarrages() {
   }
 
   playLoading.value = true
-  console.log(1111)
+
   sendMsgToContent({
     type: 'play',
     videoId: video.id,

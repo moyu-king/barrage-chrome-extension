@@ -10,6 +10,7 @@
     "service_worker": "src/background.ts"
   },
   "permissions": [
+    "tabs",
     "storage",
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",

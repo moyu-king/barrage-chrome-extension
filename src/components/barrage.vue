@@ -3,8 +3,8 @@ import type { Barrage } from '@/service'
 
 import Danmaku from 'danmaku'
 import { storeToRefs } from 'pinia'
-import { useContentStore } from '@/store'
 import { MessageType } from '@/background'
+import { useContentStore } from '@/store'
 
 let danmaku: Danmaku | null = null
 let timer: number | null = null
@@ -110,13 +110,13 @@ chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
   switch (message.type) {
     case 'play': {
       const { vid, duration, videoId, platform } = message
-      console.log(111)
+
       chrome.runtime.sendMessage(
         {
           type: MessageType.GET_BARRAGES,
-          params: { vid, duration, platform, filter: true }
+          params: { vid, duration, platform, filter: true },
         },
-        response => {
+        (response) => {
           selectedVideoId.value = videoId
           selectedVId.value = vid
           mediaDuration.value = duration
@@ -126,7 +126,7 @@ chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
           initDanmaku()
           playDanmaku()
           sendResponse(true)
-        }
+        },
       )
       break
     }

@@ -45,6 +45,7 @@ export async function createVideo(data: VideoCreateOpt) {
   try {
     const db = await getDB()
     const id = await db.add('videos', { ...data })
+
     resp.data = { ...data, id }
   }
   catch (e) {

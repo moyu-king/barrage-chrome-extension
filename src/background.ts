@@ -1,4 +1,8 @@
-import { getAllBarrages, getAllVideos, getEpisodes } from '@/service'
+import {
+  getAllBarrages,
+  getAllVideos,
+  getEpisodes,
+} from '@/service'
 
 // 请求拦截
 const rules = [
@@ -43,30 +47,33 @@ const rules = [
 export enum MessageType {
   GET_VIDEOS,
   GET_EPISODES,
-  GET_BARRAGES
+  GET_BARRAGES,
 }
 
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(() => {
   chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: [1, 2],
     addRules: rules,
   })
 
-  chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
-    console.log(message)
+  // addListener 不要加async，会改变sendResponse的执行时机
+  chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
     switch (message.type) {
       case MessageType.GET_VIDEOS: {
-        const response = await getAllVideos()
-        sendResponse(response.data)
+        getAllVideos().then(({ data }) => {
+          sendResponse(data)
+        })
         break
       }
       case MessageType.GET_BARRAGES: {
         const { params } = message
         if (!params) {
           sendResponse([])
-        } else {
-          const response = await getAllBarrages(params)
-          sendResponse(response.data)
+        }
+        else {
+          getAllBarrages(params).then(({ data }) => {
+            sendResponse(data)
+          })
         }
         break
       }
@@ -74,12 +81,16 @@ chrome.runtime.onInstalled.addListener(async () => {
         const { id } = message
         if (!id) {
           sendResponse([])
-        } else {
-          const response = await getEpisodes(id)
-          sendResponse(response.data)
+        }
+        else {
+          getEpisodes(id).then(({ data }) => {
+            sendResponse(data)
+          })
         }
         break
       }
     }
+
+    return true
   })
 })
