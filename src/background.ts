@@ -1,4 +1,5 @@
 import {
+  createVideo,
   getAllBarrages,
   getAllVideos,
   getEpisodes,
@@ -46,51 +47,61 @@ const rules = [
 
 export enum MessageType {
   GET_VIDEOS,
+  CREATE_VIDEO,
   GET_EPISODES,
   GET_BARRAGES,
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled?.addListener(() => {
   chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: [1, 2],
     addRules: rules,
   })
 
-  // addListener 不要加async，会改变sendResponse的执行时机
-  chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
-    switch (message.type) {
-      case MessageType.GET_VIDEOS: {
-        getAllVideos().then(({ data }) => {
-          sendResponse(data)
-        })
-        break
-      }
-      case MessageType.GET_BARRAGES: {
-        const { params } = message
-        if (!params) {
-          sendResponse([])
-        }
-        else {
-          getAllBarrages(params).then(({ data }) => {
-            sendResponse(data)
-          })
-        }
-        break
-      }
-      case MessageType.GET_EPISODES: {
-        const { id } = message
-        if (!id) {
-          sendResponse([])
-        }
-        else {
-          getEpisodes(id).then(({ data }) => {
-            sendResponse(data)
-          })
-        }
-        break
-      }
-    }
+  // createVideo({ name: '斗破苍穹', params: { vid: 'q0043cz9x20', cid: 'mzc0020027yzd9e' }, platform: 1 })
+  // createVideo({ name: '凡人修仙传', params: { season_id: '28747' }, platform: 2 })
+})
 
-    return true
-  })
+// addListener回调函数建议不加async，会改变sendResponse的执行时机
+chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
+  switch (message.type) {
+    case MessageType.GET_VIDEOS: {
+      getAllVideos().then((response) => {
+        sendResponse(response)
+      })
+      break
+    }
+    case MessageType.GET_BARRAGES: {
+      const { params } = message
+      if (!params) {
+        sendResponse({ data: [] })
+      }
+      else {
+        getAllBarrages(params).then((response) => {
+          sendResponse(response)
+        })
+      }
+      break
+    }
+    case MessageType.GET_EPISODES: {
+      const { id } = message
+      if (!id) {
+        sendResponse({ data: [] })
+      }
+      else {
+        getEpisodes(id).then((response) => {
+          sendResponse(response)
+        })
+      }
+      break
+    }
+    case MessageType.CREATE_VIDEO: {
+      const { data } = message
+      createVideo(data).then((response) => {
+        sendResponse(response)
+      })
+    }
+  }
+
+  return true // 异步调用sendResponse
 })

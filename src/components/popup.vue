@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { BaseResponse, Episode } from '@/service'
+
 import { Setting } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
 import { MessageType } from '@/background'
@@ -12,16 +14,8 @@ const playLoading = ref(false)
 const store = usePopupStore()
 const { selectedVideoId, selectedEpisode, timerTime, videoMap, videos } = storeToRefs(store)
 
-chrome.runtime.onMessage.addListener(async (message, sender) => {
-  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-    if (message.type === 'time' && sender.tab?.id === tab?.id) {
-      timerTime.value = message.time || 0
-    }
-  })
-})
-
 chrome.runtime.sendMessage({ type: MessageType.GET_VIDEOS }, (response) => {
-  videos.value = response
+  videos.value = response.data
 
   sendMsgToContent({
     type: 'init',
@@ -37,18 +31,24 @@ chrome.runtime.sendMessage({ type: MessageType.GET_VIDEOS }, (response) => {
       return
     }
 
-    const episodes = await store.getVideoEpisode(message.videoId)
+    chrome.runtime.sendMessage({
+      type: MessageType.GET_EPISODES,
+      id: message.videoId,
+    }, (response) => {
+      const { data } = response as BaseResponse<Episode[]>
 
-    if (episodes?.length) {
-      const episode = episodes.find(episode => episode.vid === message.vid)
+      if (response.data?.length) {
+        const episode = data.find(episode => episode.vid === message.vid)
 
-      if (episode) {
-        selectedEpisode.value = episode
+        if (episode) {
+          selectedEpisode.value = episode
+        }
       }
-    }
+    })
   })
 })
 
+/* ==================== 时间进度 ==================== */
 const time = reactive({
   minute: 0,
   second: 0,
@@ -71,6 +71,14 @@ const maxTime = computed(() => {
 watch(timerTime, () => {
   time.minute = Math.floor(timerTime.value / 60)
   time.second = timerTime.value % 60
+})
+
+chrome.runtime.onMessage.addListener(async (message, sender) => {
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    if (message.type === 'time' && sender.tab?.id === tab?.id) {
+      timerTime.value = message.time || 0
+    }
+  })
 })
 
 function formatTooltip(_: number) {

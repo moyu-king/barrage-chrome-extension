@@ -120,7 +120,7 @@ chrome.runtime.onMessage.addListener(async (message, _, sendResponse) => {
           selectedVideoId.value = videoId
           selectedVId.value = vid
           mediaDuration.value = duration
-          barragesMap.value.set(vid, response)
+          barragesMap.value.set(vid, response.data)
 
           destroyDanmaku(false)
           initDanmaku()

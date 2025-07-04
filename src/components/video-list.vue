@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { Video } from '@/service'
+import type { Episode } from '@/service'
 
 import { storeToRefs } from 'pinia'
+import { MessageType } from '@/background'
 import { Platform } from '@/service'
 import { usePopupStore } from '@/store'
 
@@ -9,18 +10,33 @@ const activeMenu = defineModel<Platform>('active', { default: Platform.TENCENT }
 const prefix = 'crx-video-list'
 const loadingId = ref()
 const store = usePopupStore()
-const { videoGroup, selectedVideoId, platformMenus } = storeToRefs(store)
+const {
+  videoGroup,
+  selectedVideoId,
+  platformMenus,
+  episodesMap,
+} = storeToRefs(store)
 
 const currMenuVideos = computed(() => {
   return videoGroup.value[activeMenu.value] ?? []
 })
 
-async function selectVideo(vid: Video['id'], platform: Video['platform']) {
+async function selectVideo(vid: number) {
+  if (!vid) {
+    return
+  }
+
   loadingId.value = vid
-  await store.getVideoEpisode(vid, platform)
-  loadingId.value = undefined
-  await nextTick()
-  selectedVideoId.value = vid
+
+  chrome.runtime.sendMessage({
+    type: MessageType.GET_EPISODES,
+    id: vid,
+  }, async (response) => {
+    episodesMap.value.set(vid, response.data)
+    loadingId.value = undefined
+    await nextTick()
+    selectedVideoId.value = vid
+  })
 }
 </script>
 
@@ -36,7 +52,7 @@ async function selectVideo(vid: Video['id'], platform: Video['platform']) {
           :loading="loadingId === video.id"
           :title="video.name"
           class="video-item"
-          @click="selectVideo(video.id, video.platform)"
+          @click="selectVideo(video.id!)"
         >
           {{ video.name }}
         </el-button>

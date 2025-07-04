@@ -119,19 +119,19 @@ export class BiliBiliBarrageFetcher {
     const tasks = Array.from({ length: segments }, (_, i) =>
       this.fetchOne(vid, i + 1))
 
-    const results = await Promise.all(tasks)
-    return results.flat()
+    return (await Promise.all(tasks)).flat()
   }
 
   async fetchOne(vid: string, segmentIndex: number) {
     try {
       const params = { oid: vid, segment_index: segmentIndex, type: 1 }
-      const res = await instance.get(this.baseUrl, {
+      const buffer: ArrayBuffer = await instance.get(this.baseUrl, {
         params,
         responseType: 'arraybuffer',
       })
 
-      const reply = barrage.BarrageSegMobi1eReply.decode(new Uint8Array(res.data))
+      const reply = barrage.BarrageSegMobi1eReply.decode(new Uint8Array(buffer))
+
       return reply.elems.map(elem => ({
         content: elem.content ?? '',
         style: elem.color ? `color:#${elem.color.toString(16)}` : '',
