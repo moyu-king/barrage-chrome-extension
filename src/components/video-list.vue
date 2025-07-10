@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { Episode } from '@/service'
-
 import { storeToRefs } from 'pinia'
 import { MessageType } from '@/background'
 import { Platform } from '@/service'

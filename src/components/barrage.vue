@@ -176,7 +176,7 @@ document.addEventListener('fullscreenchange', () => {
   </div>
 </template>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .crx-barrage {
   margin: 0;
   padding: 0;

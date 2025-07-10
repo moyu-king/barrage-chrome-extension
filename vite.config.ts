@@ -28,7 +28,13 @@ export default defineConfig({
     },
   },
   plugins: [
-    vue(),
+    vue({
+      template: {
+        compilerOptions: {
+          isCustomElement: tag => tag === 'crx-side',
+        },
+      },
+    }),
     crx({ manifest }),
     Icons({ autoInstall: true }),
     AutoImport({
