@@ -1,7 +1,6 @@
-import { createPinia } from 'pinia'
 import { createApp, defineCustomElement } from 'vue'
+import ContentCe from './components/content.ce.vue'
 import Content from './components/content.vue'
-import Side from './components/side.ce.vue'
 
 import './style/index.scss'
 
@@ -10,7 +9,9 @@ const root = document.createElement('div')
 root.id = 'crx-root'
 document.body.append(root)
 
-const sideElement = defineCustomElement(Side)
-customElements.define('crx-side', sideElement)
+const contentElement = defineCustomElement(ContentCe)
 
-createApp(Content).use(createPinia()).mount(root)
+customElements.define('crx-content', contentElement)
+
+createApp(Content).mount(root)
+

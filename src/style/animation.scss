@@ -22,3 +22,20 @@
 .fade-in-left-leave-active {
   animation: fadeInRight var(--animation-duration, 300ms) reverse;
 }
+
+// 反方向进出
+.move-in-right-enter-active {
+  animation: fadeInRight var(--animation-duration, 300ms) forwards;
+}
+
+.move-in-right-leave-active {
+  animation: fadeInRight var(--animation-duration, 300ms) reverse;
+}
+
+.move-in-left-enter-active {
+  animation: fadeInLeft var(--animation-duration, 300ms) forwards;
+}
+
+.move-in-left-enter-active {
+  animation: fadeInLeft var(--animation-duration, 300ms) forwards;
+}

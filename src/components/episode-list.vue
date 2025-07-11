@@ -2,17 +2,16 @@
 import type { Episode } from '@/service'
 
 import { ArrowLeftBold } from '@element-plus/icons-vue'
-import { storeToRefs } from 'pinia'
-import { usePopupStore } from '@/store'
+import { contentInjectionKey } from '@/symbol'
+
+const {
+  selectedEpisode,
+  selectedVideoId,
+  episodesMap,
+  videoMap
+} = inject(contentInjectionKey)!
 
 const prefix = 'crx-episode'
-const store = usePopupStore()
-const {
-  selectedVideoId,
-  selectedEpisode,
-  episodesMap,
-  videoMap,
-} = storeToRefs(store)
 
 const episodes = computed(() => {
   if (typeof selectedVideoId.value !== 'number')
@@ -93,73 +92,3 @@ function episodeItemClass(episode: Episode) {
     </el-scrollbar>
   </div>
 </template>
-
-<style lang="scss">
-.crx-episode {
-  display: flex;
-  flex-direction: column;
-  row-gap: 10px;
-  width: 100%;
-  height: 100%;
-
-  &__header {
-    display: flex;
-    align-items: center;
-    font-size: 14px;
-
-    &-left {
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-
-      &:hover {
-        color: var(--el-color-primary)
-      }
-    }
-  }
-
-  &__season {
-    font-size: 16px;
-    padding: 15px 5px;
-
-    &:first-child {
-      padding-top: 0;
-    }
-  }
-
-  &__wrapper {
-    display: grid;
-    gap: 15px;
-    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-
-    .el-button {
-      display: block;
-      padding: 5px;
-      margin: 0;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      overflow: hidden;
-
-      &.wide-item {
-        grid-column: span 2;
-      }
-
-      &.large-item {
-        grid-column: span 3;
-      }
-
-      &.plus-item {
-        grid-column: span 4;
-      }
-
-      & > span {
-        display: inline;
-      }
-    }
-  }
-
-  .el-scrollbar {
-    flex: 1;
-  }
-}
-</style>

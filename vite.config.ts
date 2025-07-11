@@ -31,7 +31,7 @@ export default defineConfig({
     vue({
       template: {
         compilerOptions: {
-          isCustomElement: tag => tag === 'crx-side',
+          isCustomElement: tag => tag === 'crx-content',
         },
       },
     }),

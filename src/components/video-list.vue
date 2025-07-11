@@ -1,19 +1,45 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
+import type { Video } from '@/service'
+
 import { MessageType } from '@/background'
+import { contentInjectionKey } from '@/symbol'
 import { Platform } from '@/service'
-import { usePopupStore } from '@/store'
 
 const activeMenu = defineModel<Platform>('active', { default: Platform.TENCENT })
+
+const platformToName = {
+  [Platform.TENCENT]: '腾讯',
+  [Platform.BILIBILI]: 'bilibili',
+}
+
+const {
+  videos,
+  episodesMap,
+  selectedVideoId
+} = inject(contentInjectionKey)!
+
 const prefix = 'crx-video-list'
 const loadingId = ref()
-const store = usePopupStore()
-const {
-  videoGroup,
-  selectedVideoId,
-  platformMenus,
-  episodesMap,
-} = storeToRefs(store)
+
+const videoGroup = computed(() => {
+  return videos.value.reduce((acc, v) => {
+    const key = v.platform
+
+    if (!acc[key]) {
+      acc[key] = []
+    }
+
+    acc[key].push(v)
+    return acc
+  }, {} as Record<Platform, Video[]>)
+})
+
+const platformMenus = computed(() => {
+  return (Object.keys(videoGroup.value)).map(key => ({
+    value: Number.parseInt(key),
+    label: (platformToName as Record<string, any>)[key],
+  }))
+})
 
 const currMenuVideos = computed(() => {
   return videoGroup.value[activeMenu.value] ?? []
@@ -29,10 +55,9 @@ async function selectVideo(vid: number) {
   chrome.runtime.sendMessage({
     type: MessageType.GET_EPISODES,
     id: vid,
-  }, async (response) => {
+  }, (response) => {
     episodesMap.value.set(vid, response.data)
     loadingId.value = undefined
-    await nextTick()
     selectedVideoId.value = vid
   })
 }
@@ -58,41 +83,3 @@ async function selectVideo(vid: number) {
     </el-scrollbar>
   </div>
 </template>
-
-<style lang="scss">
-.crx-video-list {
-  display: flex;
-  flex-direction: column;
-  row-gap: 10px;
-  width: 100%;
-  height: 100%;
-
-  .el-segmented {
-    --el-segmented-item-selected-color: var(--el-text-color-primary);
-    --el-segmented-item-selected-bg-color: #ffd100;
-    --el-border-radius-base: 16px;
-
-    width: 100%;
-    padding-right: 10px;
-  }
-
-  &__wrapper {
-    display: grid;
-    gap: 10px;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-
-    .el-button {
-      display: block;
-      padding: 5px;
-      margin: 0;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      overflow: hidden;
-
-      & > span {
-        display: inline;
-      }
-    }
-  }
-}
-</style>
