@@ -4,6 +4,7 @@ import type { Barrage, Episode, Video } from '@/service'
 import {
   CaretRight,
   CloseBold,
+  Plus,
   Refresh,
   Setting,
   Switch,
@@ -245,6 +246,19 @@ function playBarrages() {
 onMounted(() => {
   dialog.value?.showPopover()
 })
+
+/* ==================== 添加视频 ==================== */
+// const targetUrls = ['https://www.bilibili.com/bangumi/play']
+const platformOptions = [
+  { label: 'bilibili', value: Platform.BILIBILI },
+  { label: '腾讯视频', value: Platform.TENCENT },
+]
+const showAddPanel = ref(false)
+const formData = reactive({
+  name: '',
+  params: {} as Record<string, any>,
+  platform: Platform.BILIBILI,
+})
 </script>
 
 <template>
@@ -255,8 +269,8 @@ onMounted(() => {
           <span style="transform: scale(0.9)">{{ time.minute }}:{{ time.second }}</span>
         </div>
         <div :class="`${prefix}__controls`">
-          <el-icon :size="18">
-            <CaretRight />
+          <el-icon @click="showAddPanel = true">
+            <Plus />
           </el-icon>
           <el-icon @click="destroyDanmaku()">
             <Refresh />
@@ -340,6 +354,42 @@ onMounted(() => {
       </div>
     </Transition>
     <div ref="barrageEl" class="crx-barrage" />
+    <el-dialog
+      v-model="showAddPanel"
+      title="添加视频"
+      width="500"
+      align-center
+    >
+      <div class="add-panel-item">
+        <div class="add-panel-item__label">
+          视频名称
+        </div>
+        <el-input v-model="formData.name" />
+      </div>
+      <div class="add-panel-item">
+        <div class="add-panel-item__label">
+          视频平台
+        </div>
+        <el-radio-group v-model="formData.platform">
+          <el-radio-button
+            v-for="item in platformOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-radio-group>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showAddPanel = false">
+            取消
+          </el-button>
+          <el-button type="primary" @click="showAddPanel = false">
+            保存
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

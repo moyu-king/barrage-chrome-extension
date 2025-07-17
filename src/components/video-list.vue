@@ -2,8 +2,8 @@
 import type { Video } from '@/service'
 
 import { MessageType } from '@/background'
-import { contentInjectionKey } from '@/symbol'
 import { Platform } from '@/service'
+import { contentInjectionKey } from '@/symbol'
 
 const activeMenu = defineModel<Platform>('active', { default: Platform.TENCENT })
 
@@ -15,7 +15,7 @@ const platformToName = {
 const {
   videos,
   episodesMap,
-  selectedVideoId
+  selectedVideoId,
 } = inject(contentInjectionKey)!
 
 const prefix = 'crx-video-list'

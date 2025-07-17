@@ -5,6 +5,11 @@
 @use 'element-plus/theme-chalk/el-slider.css';
 @use 'element-plus/theme-chalk/el-scrollbar.css';
 @use 'element-plus/theme-chalk/el-segmented.css';
+@use 'element-plus/theme-chalk/el-form';
+@use 'element-plus/theme-chalk/el-dialog';
+@use 'element-plus/theme-chalk/el-overlay';
+@use 'element-plus/theme-chalk/el-radio-group';
+@use 'element-plus/theme-chalk/el-radio-button';
 @use './index.scss';
 
 @mixin box-modifier {
@@ -291,4 +296,23 @@
   overflow: hidden;
   user-select: none;
   background-color: transparent;
+}
+
+.add-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  &:last-child {
+    margin: 0;
+  }
+
+  &__label {
+    white-space: nowrap;
+  }
+
+  .el-input {
+    flex: 1;
+  }
 }
