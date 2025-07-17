@@ -55,7 +55,7 @@ function getVideos() {
   return new Promise<Video[]>((resolve) => {
     chrome.runtime.sendMessage({ type: MessageType.GET_VIDEOS }, (response) => {
       videos.value = response.data
-      activeMenu.value = parseInt(Object.keys(videoGroup.value)[0])
+      activeMenu.value = Number.parseInt(Object.keys(videoGroup.value)[0])
       resolve(videos.value)
     })
   })
@@ -275,7 +275,7 @@ let observer: MutationObserver | null = null
 
 const targetPlatform = [
   { url: 'https://www.bilibili.com/bangumi/play/', platform: Platform.BILIBILI },
-  { url: 'https://v.qq.com/x/cover/', platform: Platform.TENCENT }
+  { url: 'https://v.qq.com/x/cover/', platform: Platform.TENCENT },
 ]
 const lastUrl = ref(location.href)
 const showAddPanel = ref(false)
@@ -331,7 +331,7 @@ function domChange() {
 async function saveVideo() {
   chrome.runtime.sendMessage({
     type: MessageType.CREATE_VIDEO,
-    data: formData
+    data: formData,
   }, async (response) => {
     const appendTo = document.querySelector('crx-content')?.shadowRoot?.querySelector('.dialog-wrapper') as HTMLElement
 
@@ -341,9 +341,10 @@ async function saveVideo() {
       ElMessage({
         type: 'success',
         message: '添加成功!',
-        appendTo
+        appendTo,
       })
-    } else {
+    }
+    else {
       ElMessage({
         type: 'error',
         message: '添加失败！',

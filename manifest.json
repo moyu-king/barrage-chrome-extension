@@ -24,7 +24,7 @@
   ],
   "content_scripts": [
     {
-      "js": ["src/content.ts"],
+      "js": ["./node_modules/@webcomponents/custom-elements/custom-elements.min.js", "src/content.ts"],
       "matches": ["<all_urls>"]
     }
   ],

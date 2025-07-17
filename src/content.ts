@@ -14,4 +14,3 @@ const contentElement = defineCustomElement(ContentCe)
 customElements.define('crx-content', contentElement)
 
 createApp(Content).mount(root)
-
