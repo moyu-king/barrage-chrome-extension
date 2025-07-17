@@ -39,8 +39,8 @@ export async function createVideo(data: VideoCreateOpt) {
   const resp = {
     status: 1,
     message: 'success',
-    data: {},
-  } as BaseResponse<Video>
+    data: null,
+  } as BaseResponse<Video | null>
 
   try {
     const db = await getDB()

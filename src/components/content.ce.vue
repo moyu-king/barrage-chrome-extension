@@ -2,7 +2,6 @@
 import type { Barrage, Episode, Video } from '@/service'
 
 import {
-  CaretRight,
   CloseBold,
   Plus,
   Refresh,
@@ -10,6 +9,7 @@ import {
   Switch,
 } from '@element-plus/icons-vue'
 import Danmaku from 'danmaku'
+import { ElMessage } from 'element-plus'
 import { MessageType } from '@/background'
 import { useCatchMoveMouse } from '@/hooks/useCatchMouseMove'
 import { Platform } from '@/service'
@@ -29,13 +29,39 @@ const videoMap = computed(() => {
   return new Map(videos.value.map(v => [v.id, v]))
 })
 
+const videoGroup = computed(() => {
+  return videos.value.reduce((acc, v) => {
+    const key = v.platform
+
+    if (!acc[key]) {
+      acc[key] = []
+    }
+
+    acc[key].push(v)
+    return acc
+  }, {} as Record<Platform, Video[]>)
+})
+
 provide(contentInjectionKey, {
   videos,
   selectedVideoId,
   episodesMap,
+  videoGroup,
   videoMap,
   selectedEpisode,
 })
+
+function getVideos() {
+  return new Promise<Video[]>((resolve) => {
+    chrome.runtime.sendMessage({ type: MessageType.GET_VIDEOS }, (response) => {
+      videos.value = response.data
+      activeMenu.value = parseInt(Object.keys(videoGroup.value)[0])
+      resolve(videos.value)
+    })
+  })
+}
+
+getVideos()
 
 /* ==================== 弹幕容器 ==================== */
 let danmaku: Danmaku | null = null
@@ -161,10 +187,6 @@ const time = reactive({
   second: 0,
 })
 
-chrome.runtime.sendMessage({ type: MessageType.GET_VIDEOS }, (response) => {
-  videos.value = response.data
-})
-
 const maxTime = computed(() => {
   const max: Record<string, number | undefined> = {
     minus: undefined,
@@ -243,33 +265,122 @@ function playBarrages() {
   )
 }
 
-onMounted(() => {
-  dialog.value?.showPopover()
-})
-
 /* ==================== 添加视频 ==================== */
-// const targetUrls = ['https://www.bilibili.com/bangumi/play']
 const platformOptions = [
   { label: 'bilibili', value: Platform.BILIBILI },
   { label: '腾讯视频', value: Platform.TENCENT },
 ]
+
+let observer: MutationObserver | null = null
+
+const targetPlatform = [
+  { url: 'https://www.bilibili.com/bangumi/play/', platform: Platform.BILIBILI },
+  { url: 'https://v.qq.com/x/cover/', platform: Platform.TENCENT }
+]
+const lastUrl = ref(location.href)
 const showAddPanel = ref(false)
 const formData = reactive({
   name: '',
   params: {} as Record<string, any>,
   platform: Platform.BILIBILI,
 })
+
+const currTargetPlatform = computed(() => {
+  return targetPlatform.find(item => lastUrl.value.includes(item.url))
+})
+
+watch(showAddPanel, async (val) => {
+  if (!val || !currTargetPlatform.value) {
+    return
+  }
+
+  switch (currTargetPlatform.value.platform) {
+    case Platform.BILIBILI: {
+      const pattern = /\/(ep|ss)([^/?]*)[/?]/
+      const match = pattern.exec(location.href)
+
+      if (match !== null) {
+        const type = match[1]
+        const id = match[2]
+        const params = type === 'ss' ? { season_id: id } : { ep_id: id }
+
+        formData.platform = Platform.BILIBILI
+        formData.params = params
+        formData.name = document.title.split(' ')[0].split('_')[0]
+      }
+      break
+    }
+    case Platform.TENCENT: {
+      const paths = location.href.split('/')
+      const cid = paths[paths.length - 2]
+      const vid = paths[paths.length - 1].replace('.html', '')
+
+      formData.platform = Platform.TENCENT
+      formData.params = { cid, vid }
+      formData.name = document.title.split(' ')[0].split('_')[0]
+    }
+  }
+})
+
+function domChange() {
+  if (window.location.href !== lastUrl.value) {
+    lastUrl.value = window.location.href
+  }
+}
+
+async function saveVideo() {
+  chrome.runtime.sendMessage({
+    type: MessageType.CREATE_VIDEO,
+    data: formData
+  }, async (response) => {
+    const appendTo = document.querySelector('crx-content')?.shadowRoot?.querySelector('.dialog-wrapper') as HTMLElement
+
+    if (response.data) {
+      await getVideos()
+
+      ElMessage({
+        type: 'success',
+        message: '添加成功!',
+        appendTo
+      })
+    } else {
+      ElMessage({
+        type: 'error',
+        message: '添加失败！',
+        appendTo,
+      })
+    }
+
+    showAddPanel.value = false
+  })
+}
+
+onMounted(() => {
+  observer = new MutationObserver(domChange)
+  observer.observe(document.body, { childList: true })
+  dialog.value?.showPopover()
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  observer = null
+})
 </script>
 
 <template>
-  <div ref="dialog" class="dialog-wrapper" popover="manual">
+  <div
+    ref="dialog"
+    class="dialog-wrapper"
+    part="wrapper"
+    popover="manual"
+  >
     <Transition name="move-in-right" mode="out-in">
       <div v-show="isMoving || !isFullscreen || showPopup" :class="`${prefix} ${showPopup ? 'active' : ''}`">
         <div class="crx-float-bubble">
           <span style="transform: scale(0.9)">{{ time.minute }}:{{ time.second }}</span>
         </div>
         <div :class="`${prefix}__controls`">
-          <el-icon @click="showAddPanel = true">
+          <el-icon :class="{ disabled: !currTargetPlatform }" @click="showAddPanel = true">
             <Plus />
           </el-icon>
           <el-icon @click="destroyDanmaku()">
@@ -384,7 +495,7 @@ const formData = reactive({
           <el-button @click="showAddPanel = false">
             取消
           </el-button>
-          <el-button type="primary" @click="showAddPanel = false">
+          <el-button type="primary" @click="saveVideo">
             保存
           </el-button>
         </div>

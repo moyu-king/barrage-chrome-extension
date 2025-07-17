@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { Video } from '@/service'
-
 import { MessageType } from '@/background'
 import { Platform } from '@/service'
 import { contentInjectionKey } from '@/symbol'
@@ -13,26 +11,13 @@ const platformToName = {
 }
 
 const {
-  videos,
+  videoGroup,
   episodesMap,
   selectedVideoId,
 } = inject(contentInjectionKey)!
 
 const prefix = 'crx-video-list'
 const loadingId = ref()
-
-const videoGroup = computed(() => {
-  return videos.value.reduce((acc, v) => {
-    const key = v.platform
-
-    if (!acc[key]) {
-      acc[key] = []
-    }
-
-    acc[key].push(v)
-    return acc
-  }, {} as Record<Platform, Video[]>)
-})
 
 const platformMenus = computed(() => {
   return (Object.keys(videoGroup.value)).map(key => ({

@@ -50,6 +50,7 @@ export enum MessageType {
   CREATE_VIDEO,
   GET_EPISODES,
   GET_BARRAGES,
+  GET_VIDEO_NAME,
 }
 
 chrome.runtime.onInstalled?.addListener(() => {
@@ -57,9 +58,6 @@ chrome.runtime.onInstalled?.addListener(() => {
     removeRuleIds: [1, 2],
     addRules: rules,
   })
-
-  // createVideo({ name: '斗破苍穹', params: { vid: 'q0043cz9x20', cid: 'mzc0020027yzd9e' }, platform: 1 })
-  // createVideo({ name: '凡人修仙传', params: { season_id: '28747' }, platform: 2 })
 })
 
 // addListener回调函数建议不加async，会改变sendResponse的执行时机
@@ -100,6 +98,7 @@ chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
       createVideo(data).then((response) => {
         sendResponse(response)
       })
+      break
     }
   }
 

@@ -5,11 +5,12 @@
 @use 'element-plus/theme-chalk/el-slider.css';
 @use 'element-plus/theme-chalk/el-scrollbar.css';
 @use 'element-plus/theme-chalk/el-segmented.css';
-@use 'element-plus/theme-chalk/el-form';
-@use 'element-plus/theme-chalk/el-dialog';
-@use 'element-plus/theme-chalk/el-overlay';
-@use 'element-plus/theme-chalk/el-radio-group';
-@use 'element-plus/theme-chalk/el-radio-button';
+@use 'element-plus/theme-chalk/el-form.css';
+@use 'element-plus/theme-chalk/el-dialog.css';
+@use 'element-plus/theme-chalk/el-overlay.css';
+@use 'element-plus/theme-chalk/el-radio-group.css';
+@use 'element-plus/theme-chalk/el-radio-button.css';
+@use 'element-plus/theme-chalk/el-message.css';
 @use './index.scss';
 
 @mixin box-modifier {
@@ -51,12 +52,18 @@
     flex: 1;
 
     .el-icon {
-      color: rgba(0, 0, 0, 70%);
+      color: rgba(0, 0, 0, 75%);
       cursor: pointer;
+      transition: color 300ms;
 
       &.active,
       &:hover {
         color: #6978ff;
+      }
+
+      &.disabled {
+        color: #c8c9cc;
+        cursor: not-allowed;
       }
     }
   }

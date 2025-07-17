@@ -5,7 +5,7 @@ import { openDB } from 'idb'
 
 export const instance = axios.create()
 
-export interface BaseResponse<T extends Record<string, any> | Array<Record<string, any>>> {
+export interface BaseResponse<T extends Record<string, any> | Array<Record<string, any>> | null> {
   status: 0 | 1
   message: string
   data: T
