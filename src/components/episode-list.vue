@@ -8,7 +8,7 @@ const {
   selectedEpisode,
   selectedVideoId,
   episodesMap,
-  videoMap
+  videoMap,
 } = inject(contentInjectionKey)!
 
 const prefix = 'crx-episode'
