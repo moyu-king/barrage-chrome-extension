@@ -11,6 +11,12 @@ chrome.storage.local.get(['floatBubbleOpened']).then((result) => {
     floatBubbleOpened.value = true
   }
 })
+
+chrome.runtime.onMessage.addListener((request) => {
+  if (request.type === 'popup') {
+    floatBubbleOpened.value = request.floatBubbleOpened
+  }
+})
 </script>
 
 <template>

@@ -16,6 +16,13 @@ chrome.storage.local.get(['floatBubbleOpened']).then((result) => {
 
   watch(floatBubbleOpened, (val) => {
     chrome.storage.local.set({ floatBubbleOpened: val })
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach((tab) => {
+        if (tab.id) {
+          chrome.tabs.sendMessage(tab.id, { type: 'popup', floatBubbleOpened: val })
+        }
+      })
+    })
   })
 })
 </script>
