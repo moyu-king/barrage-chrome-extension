@@ -3,9 +3,9 @@ import type { Barrage, Episode, Video } from '@/service'
 
 import {
   CloseBold,
+  Film,
   Plus,
   Refresh,
-  Setting,
   Switch,
 } from '@element-plus/icons-vue'
 import Danmaku from 'danmaku'
@@ -198,12 +198,15 @@ function stopDanmaku() {
   }
 }
 
-function destroyDanmaku() {
+function destroyDanmaku(resetTime = true) {
   stopDanmaku()
   danmaku?.destroy()
   danmaku = null
   mediaDuration.value = 0
-  fakeMedia.currentTime = 0
+
+  if (resetTime) {
+    fakeMedia.currentTime = 0
+  }
 }
 
 function playDanmaku() {
@@ -296,7 +299,7 @@ function playBarrages() {
       selectedVId.value = vid
       barragesMap.value.set(vid, response.data)
 
-      destroyDanmaku()
+      destroyDanmaku(false)
       initDanmaku()
       playDanmaku()
 
@@ -436,10 +439,10 @@ onBeforeUnmount(() => {
           <div v-show="showPopup" :class="`${prefix}-popup`">
             <div :class="`${prefix}-popup__header`">
               <div :class="`${prefix}-popup__title`">
-                <el-icon size="14" style="margin-top: 1px">
-                  <Setting />
+                <el-icon size="16" style="margin-top: 1px">
+                  <Film />
                 </el-icon>
-                <span>控制面板</span>
+                <span>播放列表</span>
               </div>
               <el-icon class="close-icon" @click="closePopup">
                 <CloseBold />
