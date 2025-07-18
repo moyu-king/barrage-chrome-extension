@@ -85,20 +85,61 @@ const fakeMedia = reactive<HTMLMediaElement>({
 const isFullscreen = ref(false)
 const { start, close, isMoving } = useCatchMoveMouse()
 
+let lastFullscreenEl: Element | null = null
+
 document.addEventListener('fullscreenchange', () => {
-  const root = document.querySelector('#crx-root')
+  let root: HTMLElement | null | undefined
+
+  if (lastFullscreenEl && lastFullscreenEl.tagName === 'IFRAME') {
+    const iframeDoc = (lastFullscreenEl as HTMLIFrameElement).contentDocument
+    root = iframeDoc?.body.querySelector('#crx-root')
+  }
+  else {
+    root = document.querySelector('#crx-root') as HTMLElement
+  }
 
   if (!dialog.value || !root)
     return
 
-  if (document.fullscreenElement) {
-    isFullscreen.value = true
-    document.fullscreenElement.appendChild(root)
-    start(document.fullscreenElement)
+  const fullscreenElement = document.fullscreenElement
+
+  if (fullscreenElement) {
+    if (fullscreenElement.tagName === 'IFRAME') {
+      const iframeDoc = (fullscreenElement as HTMLIFrameElement).contentDocument
+
+      if (!iframeDoc) {
+        return
+      }
+
+      const styles = getComputedStyle(document.documentElement)
+      const cssVars = []
+      for (const prop of styles) {
+        if (prop.startsWith('--el-')) {
+          const value = styles.getPropertyValue(prop)
+          cssVars.push(`${prop}: ${value};`)
+        }
+      }
+
+      const style = iframeDoc.createElement('style')
+      style.textContent = `:root { ${cssVars.join('\n')} }`
+      iframeDoc.head.appendChild(style)
+
+      // 插入插件元素
+      iframeDoc?.body.append(root)
+      start(iframeDoc?.body)
+    }
+    else {
+      isFullscreen.value = true
+      fullscreenElement.appendChild(root)
+      start(fullscreenElement)
+    }
+
+    lastFullscreenEl = fullscreenElement
   }
   else {
     isFullscreen.value = false
     document.body.appendChild(root)
+    lastFullscreenEl = null
     close()
   }
 
