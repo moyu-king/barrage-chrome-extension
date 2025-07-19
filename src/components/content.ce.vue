@@ -126,14 +126,15 @@ document.addEventListener('fullscreenchange', () => {
 
       // 插入插件元素
       iframeDoc?.body.append(root)
-      start(iframeDoc?.body)
+      const video = iframeDoc.querySelector('video')
+      video && start(video)
     }
     else {
-      isFullscreen.value = true
       fullscreenElement.appendChild(root)
       start(fullscreenElement)
     }
 
+    isFullscreen.value = true
     lastFullscreenEl = fullscreenElement
   }
   else {
@@ -340,7 +341,7 @@ watch(showAddPanel, async (val) => {
 
   switch (currTargetPlatform.value.platform) {
     case Platform.BILIBILI: {
-      const pattern = /\/(ep|ss)([^/?]*)[/?]/
+      const pattern = /\/(ep|ss)([^/?]*)[/?]?/
       const match = pattern.exec(location.href)
 
       if (match !== null) {
@@ -351,6 +352,14 @@ watch(showAddPanel, async (val) => {
         formData.platform = Platform.BILIBILI
         formData.params = params
         formData.name = document.title.split(' ')[0].split('_')[0]
+      }
+      else {
+        showAddPanel.value = false
+        ElMessage({
+          type: 'error',
+          message: '未能识别出视频资源！',
+          appendTo: dialog.value,
+        })
       }
       break
     }
@@ -377,10 +386,10 @@ async function saveVideo() {
     type: MessageType.CREATE_VIDEO,
     data: formData,
   }, async (response) => {
-    const appendTo = document.querySelector('crx-content')?.shadowRoot?.querySelector('.dialog-wrapper') as HTMLElement
+    const appendTo = dialog.value
 
     if (response.data) {
-      await getVideos()
+      chrome.runtime.sendMessage({ type: MessageType.SYNC_CONTENT_DATA })
 
       ElMessage({
         type: 'success',
@@ -399,6 +408,13 @@ async function saveVideo() {
     showAddPanel.value = false
   })
 }
+
+// 同步数据
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === MessageType.SYNC_CONTENT_DATA) {
+    getVideos()
+  }
+})
 
 onMounted(() => {
   observer = new MutationObserver(domChange)

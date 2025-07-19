@@ -51,6 +51,7 @@ export enum MessageType {
   GET_EPISODES,
   GET_BARRAGES,
   GET_VIDEO_NAME,
+  SYNC_CONTENT_DATA,
 }
 
 chrome.runtime.onInstalled?.addListener(() => {
@@ -99,6 +100,15 @@ chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
         sendResponse(response)
       })
       break
+    }
+    case MessageType.SYNC_CONTENT_DATA: {
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach((tab) => {
+          if (tab.id) {
+            chrome.tabs.sendMessage(tab.id, { type: MessageType.SYNC_CONTENT_DATA })
+          }
+        })
+      })
     }
   }
 

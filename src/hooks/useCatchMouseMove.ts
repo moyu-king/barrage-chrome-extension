@@ -20,7 +20,7 @@ function throttle<T extends (...args: any[]) => void>(
   }
 }
 
-export function useCatchMoveMouse(delay = 2000) {
+export function useCatchMoveMouse(delay = 3000) {
   let timeout: ReturnType<typeof setTimeout> | undefined
 
   const listenEl = ref<HTMLElement | Element | null>()
