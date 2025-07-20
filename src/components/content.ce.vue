@@ -87,6 +87,33 @@ const { start, close, isMoving } = useCatchMoveMouse()
 
 let lastFullscreenEl: Element | null = null
 
+/**
+ * 收集element-plus css var
+ */
+function collectCssVars() {
+  const cssVars: string[] = []
+  Array.from(document.styleSheets).forEach((sheet) => {
+    try {
+      Array.from((sheet as CSSStyleSheet).cssRules).forEach((rule) => {
+        if (rule instanceof CSSStyleRule && rule.selectorText === ':root') {
+          const style = rule.style
+          for (let i = 0; i < style.length; i++) {
+            const prop = style[i]
+            if (prop.startsWith('--el-')) {
+              const value = style.getPropertyValue(prop)
+              cssVars.push(`${prop}: ${value};`)
+            }
+          }
+        }
+      })
+    }
+    catch (e) {
+      console.warn('无法读取样式表:', e)
+    }
+  })
+  return cssVars
+}
+
 document.addEventListener('fullscreenchange', () => {
   let root: HTMLElement | null | undefined
 
@@ -111,18 +138,14 @@ document.addEventListener('fullscreenchange', () => {
         return
       }
 
-      const styles = getComputedStyle(document.documentElement)
-      const cssVars = []
-      for (const prop of styles) {
-        if (prop.startsWith('--el-')) {
-          const value = styles.getPropertyValue(prop)
-          cssVars.push(`${prop}: ${value};`)
-        }
-      }
+      // 插入element-plus样式
+      const cssVars = collectCssVars()
 
-      const style = iframeDoc.createElement('style')
-      style.textContent = `:root { ${cssVars.join('\n')} }`
-      iframeDoc.head.appendChild(style)
+      if (cssVars.length > 0) {
+        const style = iframeDoc.createElement('style')
+        style.textContent = `:root { ${cssVars.join('\n')} }`
+        iframeDoc.head.appendChild(style)
+      }
 
       // 插入插件元素
       iframeDoc?.body.append(root)
@@ -180,7 +203,7 @@ const comments = computed(() => {
       data.push(barrage)
     })
   }
-  console.log(data)
+
   return data.map(item => ({
     text: item.content,
     time: Number(item.offset) / 1000,
