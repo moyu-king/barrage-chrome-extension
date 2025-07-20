@@ -156,18 +156,31 @@ const comments = computed(() => {
   if (!barrages)
     return []
 
-  const data = [] as Barrage[]
+  let data = [] as Barrage[]
 
-  barrages.forEach((barrage) => {
-    const count = existTimeMap.get(barrage.offset)
+  // TODO b站弹幕较多，暂时减少2/3, 后续拓展同屏密度功能
+  if (activeMenu.value === Platform.BILIBILI) {
+    const len = barrages.length
+    const base = len > 100000 ? 6 : len > 30000 ? 4 : 1
 
-    if (count && count >= 3)
-      return
+    data = barrages
+      .sort((prev, next) => prev.offset - next.offset)
+      .filter((_, index) => {
+        return index % base === 0
+      })
+  }
+  else {
+    barrages.forEach((barrage) => {
+      const count = existTimeMap.get(barrage.offset)
 
-    existTimeMap.set(barrage.offset, count ? count + 1 : 1)
-    data.push(barrage)
-  })
+      if (count && count >= 3)
+        return
 
+      existTimeMap.set(barrage.offset, count ? count + 1 : 1)
+      data.push(barrage)
+    })
+  }
+  console.log(data)
   return data.map(item => ({
     text: item.content,
     time: Number(item.offset) / 1000,
@@ -409,6 +422,13 @@ async function saveVideo() {
   })
 }
 
+function prepareAdd() {
+  if (!currTargetPlatform.value) {
+    return
+  }
+  showAddPanel.value = true
+}
+
 // 同步数据
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === MessageType.SYNC_CONTENT_DATA) {
@@ -441,7 +461,7 @@ onBeforeUnmount(() => {
           <span style="transform: scale(0.9)">{{ time.minute }}:{{ time.second }}</span>
         </div>
         <div :class="`${prefix}__controls`">
-          <el-icon :class="{ disabled: !currTargetPlatform }" @click="showAddPanel = true">
+          <el-icon :class="{ disabled: !currTargetPlatform }" @click="prepareAdd">
             <Plus />
           </el-icon>
           <el-icon @click="destroyDanmaku()">
