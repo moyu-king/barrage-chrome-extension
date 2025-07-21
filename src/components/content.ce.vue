@@ -210,6 +210,12 @@ const comments = computed(() => {
     style: {
       fontSize: '16px',
       color: '#fff',
+      textShadow: `
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px  1px 0 #000,
+        1px  1px 0 #000
+      `,
     },
   }))
 })
