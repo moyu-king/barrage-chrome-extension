@@ -12,7 +12,7 @@ import Danmaku from 'danmaku'
 import { ElMessage } from 'element-plus'
 import { MessageType } from '@/background'
 import { useCatchMoveMouse } from '@/hooks/useCatchMouseMove'
-import { Platform } from '@/service'
+import { BarrageMode, Platform } from '@/service'
 import { contentInjectionKey } from '@/symbol'
 import EpisodeList from './episode-list.vue'
 import VideoList from './video-list.vue'
@@ -65,10 +65,13 @@ getVideos()
 
 /* ==================== 弹幕容器 ==================== */
 let danmaku: Danmaku | null = null
+let customDanmaku: Danmaku | null = null
 let timer: number | null = null
+let lastTime = 0 // 记录上一个时间点，判断进度条方向
 
 const dialog = ref<HTMLElement>()
-const barrageEl = ref<HTMLElement>()
+const scrollBarrageEl = ref<HTMLElement>()
+const customBarrageEl = ref<HTMLElement>()
 const mediaDuration = ref(0)
 
 const fakeMedia = reactive<HTMLMediaElement>({
@@ -172,62 +175,116 @@ document.addEventListener('fullscreenchange', () => {
   danmaku?.resize()
 })
 
-const comments = computed(() => {
+const barrageFilterGroup = computed(() => {
+  const group = [[], []] as [Barrage[], Barrage[]]
   const existTimeMap = new Map<number, number>()
-  const barrages = barragesMap.value.get(selectedVId.value)
+  const barrages = barragesMap.value.get(selectedVId.value)?.sort((prev, next) => {
+    if (prev.offset !== next.offset) {
+      return prev.offset - next.offset
+    }
 
-  if (!barrages)
-    return []
+    return next.weight - prev.weight
+  })
 
-  let data = [] as Barrage[]
+  if (!barrages) {
+    return group
+  }
 
-  // TODO b站弹幕较多，暂时减少2/3, 后续拓展同屏密度功能
   if (activeMenu.value === Platform.BILIBILI) {
-    const len = barrages.length
-    const base = len > 100000 ? 6 : len > 30000 ? 4 : 1
+    barrages.forEach((barrage) => {
+      const { offset, weight, content, mode } = barrage
+      const count = existTimeMap.get(offset)
 
-    data = barrages
-      .sort((prev, next) => prev.offset - next.offset)
-      .filter((_, index) => {
-        return index % base === 0
-      })
+      if (weight < 2 || content.length < 2 || (count && count >= 3)) {
+        return
+      }
+
+      existTimeMap.set(offset, count ? count + 1 : 1)
+      if (mode === BarrageMode.SCROLL) {
+        group[0].push(barrage)
+      }
+      else {
+        group[1].push(barrage)
+      }
+    })
   }
   else {
     barrages.forEach((barrage) => {
-      const count = existTimeMap.get(barrage.offset)
+      const { offset, weight, content, mode } = barrage
+      const count = existTimeMap.get(offset)
 
-      if (count && count >= 3)
+      if ((count && count >= 3) || content.length <= 1 || weight < 50) {
         return
+      }
 
-      existTimeMap.set(barrage.offset, count ? count + 1 : 1)
-      data.push(barrage)
+      existTimeMap.set(offset, count ? count + 1 : 1)
+      if (mode === BarrageMode.SCROLL) {
+        group[0].push(barrage)
+      }
+      else {
+        group[1].push(barrage)
+      }
     })
   }
 
-  return data.map(item => ({
+  return group
+})
+
+const scrollComments = computed(() => {
+  return barrageFilterGroup.value[0].map(item => ({
     text: item.content,
     time: Number(item.offset) / 1000,
     style: {
+      position: 'fixed',
       fontSize: '16px',
       color: '#fff',
       textShadow: `
-        -1px -1px 0 #000,
-        1px -1px 0 #000,
-        -1px  1px 0 #000,
-        1px  1px 0 #000
+        -1px -1px #000,
+        1px -1px #000,
+        -1px  1px #000,
+        1px  1px #000
       `,
     },
   }))
 })
 
+const specialComments = computed(() => {
+  return barrageFilterGroup.value[1].map(item => {
+    const mode = item.mode === BarrageMode.TOP ? 'top' : 'bottom'
+
+    return {
+    mode,
+    text: item.content,
+    time: Number(item.offset) / 1000,
+    style: {
+      position: 'fixed',
+      fontSize: '16px',
+      color: 'orange',
+      textShadow: `
+        -1px -1px #000,
+        1px -1px #000,
+        -1px  1px #000,
+        1px  1px #000
+      `,
+    },
+  }
+  })
+})
+
 function initDanmaku() {
-  if (!barrageEl.value || danmaku)
+  if (!scrollBarrageEl.value || danmaku)
     return
 
   danmaku = new Danmaku({
-    container: barrageEl.value!,
+    container: scrollBarrageEl.value!,
     media: fakeMedia,
-    comments: comments.value,
+    comments: scrollComments.value,
+  })
+
+  customDanmaku = new Danmaku({
+    container: customBarrageEl.value!,
+    media: fakeMedia,
+    comments: specialComments.value,
   })
 
   dialog.value?.showPopover()
@@ -245,10 +302,13 @@ function destroyDanmaku(resetTime = true) {
   stopDanmaku()
   danmaku?.destroy()
   danmaku = null
+  customDanmaku?.destroy()
+  customDanmaku = null
   mediaDuration.value = 0
 
   if (resetTime) {
     fakeMedia.currentTime = 0
+    lastTime = 0
   }
 }
 
@@ -294,7 +354,8 @@ const maxTime = computed(() => {
 
 watch(
   () => fakeMedia.currentTime,
-  (val) => {
+  (val, oldVal) => {
+    lastTime = oldVal
     time.minute = Math.floor(val / 60)
     time.second = val % 60
   },
@@ -304,8 +365,14 @@ function closePopup() {
   showPopup.value = false
 }
 
-function formatTooltip(_: number) {
-  return `${time.minute} : ${time.second}`
+function handleSliderChange(value: number | number[]) {
+  const val = value as number
+
+  if (val < lastTime) {
+    destroyDanmaku(false)
+    initDanmaku()
+    playDanmaku()
+  }
 }
 
 function handleMinuteChange(val?: number) {
@@ -541,11 +608,12 @@ onBeforeUnmount(() => {
               </div>
               <div :class="`${prefix}-popup__timer`">
                 <el-slider
-                  :model-value="fakeMedia.currentTime"
+                  v-model="fakeMedia.currentTime"
+                  :show-tooltip="false"
                   :min="0"
                   :max="maxTime.duration"
                   :disabled="!selectedEpisode"
-                  :format-tooltip="formatTooltip"
+                  @change="handleSliderChange"
                 />
                 <div style="display: flex">
                   <el-input-number
@@ -574,7 +642,8 @@ onBeforeUnmount(() => {
         </Transition>
       </div>
     </Transition>
-    <div ref="barrageEl" class="crx-barrage" />
+    <div ref="scrollBarrageEl" class="crx-barrage-scroll" />
+    <div ref="customBarrageEl" class="crx-barrage-custom" />
     <el-dialog
       v-model="showAddPanel"
       title="添加视频"

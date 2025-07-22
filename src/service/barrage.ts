@@ -3,17 +3,28 @@ import type { BaseResponse } from './base'
 import { barrage } from '@/protobuf/compiler/barrage'
 import { instance, Platform } from './base'
 
+export enum BarrageMode {
+  SCROLL = 1,
+  BOTTOM,
+  TOP,
+  REVERSE,
+  CUSTOM,
+  CODE,
+  ADVANTAGE,
+  SCRIPT,
+}
+
 export interface Barrage {
   offset: number // ms
   content: string
   weight: number
   style: string
+  mode: BarrageMode
 }
 
 export interface BarrageParams {
   vid: string
   duration: number // ms
-  filter: boolean
   platform: Platform
 }
 
@@ -59,7 +70,7 @@ export async function getTencentBarrage(params: BarrageParams) {
     }
 
     const fetcher = new TencentBarrageFetcher()
-    return fetcher.fetchAll(params.duration, params.vid, params.filter)
+    return fetcher.fetchAll(params.duration, params.vid)
   }
   catch {
     return []
@@ -68,15 +79,14 @@ export async function getTencentBarrage(params: BarrageParams) {
 
 export class TencentBarrageFetcher {
   private timeOffset = 30000
-  private contentScore = 50
 
-  async fetchAll(duration: number, vid: string, filter: boolean) {
+  async fetchAll(duration: number, vid: string) {
     const timestamps = Array.from({ length: duration / 1000 / 60 * 2 }, (_, i) => i * this.timeOffset)
-    const tasks = timestamps.map(time => this.fetchOne(time, vid, filter))
+    const tasks = timestamps.map(time => this.fetchOne(time, vid))
     return (await Promise.all(tasks)).flat()
   }
 
-  async fetchOne(timeEnd: number, vid: string, filter: boolean) {
+  async fetchOne(timeEnd: number, vid: string) {
     const baseUrl = `https://dm.video.qq.com/barrage/segment/${vid}/t/v1`
     const timeBegin = timeEnd + this.timeOffset
 
@@ -85,24 +95,13 @@ export class TencentBarrageFetcher {
       const res: { barrage_list: any[] } = await instance.get(url)
       const items = res?.barrage_list || []
 
-      const barrages: Barrage[] = []
-
-      for (const item of items) {
-        const score = Number(item.content_score)
-        const content = item.content
-        if (filter && (score < this.contentScore || content.length <= 1)) {
-          continue
-        }
-
-        barrages.push({
-          style: item.content_style,
-          weight: score,
-          offset: Number(item.time_offset),
-          content,
-        })
-      }
-
-      return barrages
+      return items.map(item => ({
+        style: item.content_style,
+        weight: Number(item.content_score),
+        offset: Number(item.time_offset),
+        content: item.content,
+        mode: BarrageMode.SCROLL,
+      }))
     }
     catch {
       return []
@@ -137,6 +136,7 @@ export class BiliBiliBarrageFetcher {
         style: elem.color ? `color:#${elem.color.toString(16)}` : '',
         offset: elem.progress ?? 0,
         weight: elem.weight ?? 1,
+        mode: elem.mode ?? BarrageMode.SCROLL,
       }))
     }
     catch {

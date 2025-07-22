@@ -1,30 +1,18 @@
 declare module 'danmaku' {
   interface DanmakuItem {
     text: string
-    color?: string
-    size?: string | number
-    mode?: 'scroll' | 'top' | 'bottom'
     time: number
-    [key: string]: any
+    style?: Record<string, string>
+    mode?: string
+    render?: () => HTMLElement | HTMLCanvasElement
   }
 
   interface DanmakuOptions {
     container: HTMLElement
+    comments: DanmakuItem[]
     media?: HTMLMediaElement
-    comments?: DanmakuItem[]
     engine?: 'canvas' | 'dom'
     speed?: number
-    area?: number
-    fontSize?: number
-    lineHeight?: number
-    mode?: 'scroll' | 'top' | 'bottom'
-    direction?: 'ltr' | 'rtl'
-    visible?: boolean
-    unlimited?: boolean
-    duration?: number
-    useWorker?: boolean
-    onDraw?: (comment: DanmakuItem) => void
-    onHide?: (comment: DanmakuItem) => void
   }
 
   export default class Danmaku {

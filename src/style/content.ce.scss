@@ -11,6 +11,7 @@
 @use 'element-plus/theme-chalk/el-radio-group.css';
 @use 'element-plus/theme-chalk/el-radio-button.css';
 @use 'element-plus/theme-chalk/el-message.css';
+@use 'element-plus/theme-chalk/el-tooltip-v2.css';
 @use './index.scss';
 
 @mixin box-modifier {
@@ -179,12 +180,23 @@
   background-image: linear-gradient(100deg, rgba(125, 165, 255, 95%) 0.67%, #6978ff 64%)
 }
 
-.crx-barrage {
+.crx-barrage-scroll {
   position: fixed;
   top: 0;
   left: 0;
   width: calc(100vw + 150px);
   height: calc(100vh / 4);
+  line-height: 30px;
+  pointer-events: none;
+  background-color: transparent;
+}
+
+.crx-barrage-custom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: calc(100vw + 150px);
+  height: 100%;
   line-height: 30px;
   pointer-events: none;
   background-color: transparent;
