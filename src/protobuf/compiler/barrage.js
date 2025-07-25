@@ -16,24 +16,24 @@ export const barrage = $root.barrage = (() => {
      */
     const barrage = {};
 
-    barrage.BarrageSegMobi1eReply = (function() {
+    barrage.BarrageReply = (function() {
 
         /**
-         * Properties of a BarrageSegMobi1eReply.
+         * Properties of a BarrageReply.
          * @memberof barrage
-         * @interface IBarrageSegMobi1eReply
-         * @property {Array.<barrage.IBarrageElem>|null} [elems] BarrageSegMobi1eReply elems
+         * @interface IBarrageReply
+         * @property {Array.<barrage.IBarrageElem>|null} [elems] BarrageReply elems
          */
 
         /**
-         * Constructs a new BarrageSegMobi1eReply.
+         * Constructs a new BarrageReply.
          * @memberof barrage
-         * @classdesc Represents a BarrageSegMobi1eReply.
-         * @implements IBarrageSegMobi1eReply
+         * @classdesc Represents a BarrageReply.
+         * @implements IBarrageReply
          * @constructor
-         * @param {barrage.IBarrageSegMobi1eReply=} [properties] Properties to set
+         * @param {barrage.IBarrageReply=} [properties] Properties to set
          */
-        function BarrageSegMobi1eReply(properties) {
+        function BarrageReply(properties) {
             this.elems = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
@@ -42,35 +42,35 @@ export const barrage = $root.barrage = (() => {
         }
 
         /**
-         * BarrageSegMobi1eReply elems.
+         * BarrageReply elems.
          * @member {Array.<barrage.IBarrageElem>} elems
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @instance
          */
-        BarrageSegMobi1eReply.prototype.elems = $util.emptyArray;
+        BarrageReply.prototype.elems = $util.emptyArray;
 
         /**
-         * Creates a new BarrageSegMobi1eReply instance using the specified properties.
+         * Creates a new BarrageReply instance using the specified properties.
          * @function create
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @static
-         * @param {barrage.IBarrageSegMobi1eReply=} [properties] Properties to set
-         * @returns {barrage.BarrageSegMobi1eReply} BarrageSegMobi1eReply instance
+         * @param {barrage.IBarrageReply=} [properties] Properties to set
+         * @returns {barrage.BarrageReply} BarrageReply instance
          */
-        BarrageSegMobi1eReply.create = function create(properties) {
-            return new BarrageSegMobi1eReply(properties);
+        BarrageReply.create = function create(properties) {
+            return new BarrageReply(properties);
         };
 
         /**
-         * Encodes the specified BarrageSegMobi1eReply message. Does not implicitly {@link barrage.BarrageSegMobi1eReply.verify|verify} messages.
+         * Encodes the specified BarrageReply message. Does not implicitly {@link barrage.BarrageReply.verify|verify} messages.
          * @function encode
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @static
-         * @param {barrage.IBarrageSegMobi1eReply} message BarrageSegMobi1eReply message or plain object to encode
+         * @param {barrage.IBarrageReply} message BarrageReply message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        BarrageSegMobi1eReply.encode = function encode(message, writer) {
+        BarrageReply.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.elems != null && message.elems.length)
@@ -80,33 +80,33 @@ export const barrage = $root.barrage = (() => {
         };
 
         /**
-         * Encodes the specified BarrageSegMobi1eReply message, length delimited. Does not implicitly {@link barrage.BarrageSegMobi1eReply.verify|verify} messages.
+         * Encodes the specified BarrageReply message, length delimited. Does not implicitly {@link barrage.BarrageReply.verify|verify} messages.
          * @function encodeDelimited
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @static
-         * @param {barrage.IBarrageSegMobi1eReply} message BarrageSegMobi1eReply message or plain object to encode
+         * @param {barrage.IBarrageReply} message BarrageReply message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        BarrageSegMobi1eReply.encodeDelimited = function encodeDelimited(message, writer) {
+        BarrageReply.encodeDelimited = function encodeDelimited(message, writer) {
             return this.encode(message, writer).ldelim();
         };
 
         /**
-         * Decodes a BarrageSegMobi1eReply message from the specified reader or buffer.
+         * Decodes a BarrageReply message from the specified reader or buffer.
          * @function decode
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {barrage.BarrageSegMobi1eReply} BarrageSegMobi1eReply
+         * @returns {barrage.BarrageReply} BarrageReply
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        BarrageSegMobi1eReply.decode = function decode(reader, length, error) {
+        BarrageReply.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.barrage.BarrageSegMobi1eReply();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.barrage.BarrageReply();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -127,30 +127,30 @@ export const barrage = $root.barrage = (() => {
         };
 
         /**
-         * Decodes a BarrageSegMobi1eReply message from the specified reader or buffer, length delimited.
+         * Decodes a BarrageReply message from the specified reader or buffer, length delimited.
          * @function decodeDelimited
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {barrage.BarrageSegMobi1eReply} BarrageSegMobi1eReply
+         * @returns {barrage.BarrageReply} BarrageReply
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        BarrageSegMobi1eReply.decodeDelimited = function decodeDelimited(reader) {
+        BarrageReply.decodeDelimited = function decodeDelimited(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
             return this.decode(reader, reader.uint32());
         };
 
         /**
-         * Verifies a BarrageSegMobi1eReply message.
+         * Verifies a BarrageReply message.
          * @function verify
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @static
          * @param {Object.<string,*>} message Plain object to verify
          * @returns {string|null} `null` if valid, otherwise the reason why it is not
          */
-        BarrageSegMobi1eReply.verify = function verify(message) {
+        BarrageReply.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
             if (message.elems != null && message.hasOwnProperty("elems")) {
@@ -166,24 +166,24 @@ export const barrage = $root.barrage = (() => {
         };
 
         /**
-         * Creates a BarrageSegMobi1eReply message from a plain object. Also converts values to their respective internal types.
+         * Creates a BarrageReply message from a plain object. Also converts values to their respective internal types.
          * @function fromObject
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @static
          * @param {Object.<string,*>} object Plain object
-         * @returns {barrage.BarrageSegMobi1eReply} BarrageSegMobi1eReply
+         * @returns {barrage.BarrageReply} BarrageReply
          */
-        BarrageSegMobi1eReply.fromObject = function fromObject(object) {
-            if (object instanceof $root.barrage.BarrageSegMobi1eReply)
+        BarrageReply.fromObject = function fromObject(object) {
+            if (object instanceof $root.barrage.BarrageReply)
                 return object;
-            let message = new $root.barrage.BarrageSegMobi1eReply();
+            let message = new $root.barrage.BarrageReply();
             if (object.elems) {
                 if (!Array.isArray(object.elems))
-                    throw TypeError(".barrage.BarrageSegMobi1eReply.elems: array expected");
+                    throw TypeError(".barrage.BarrageReply.elems: array expected");
                 message.elems = [];
                 for (let i = 0; i < object.elems.length; ++i) {
                     if (typeof object.elems[i] !== "object")
-                        throw TypeError(".barrage.BarrageSegMobi1eReply.elems: object expected");
+                        throw TypeError(".barrage.BarrageReply.elems: object expected");
                     message.elems[i] = $root.barrage.BarrageElem.fromObject(object.elems[i]);
                 }
             }
@@ -191,15 +191,15 @@ export const barrage = $root.barrage = (() => {
         };
 
         /**
-         * Creates a plain object from a BarrageSegMobi1eReply message. Also converts values to other types if specified.
+         * Creates a plain object from a BarrageReply message. Also converts values to other types if specified.
          * @function toObject
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @static
-         * @param {barrage.BarrageSegMobi1eReply} message BarrageSegMobi1eReply
+         * @param {barrage.BarrageReply} message BarrageReply
          * @param {$protobuf.IConversionOptions} [options] Conversion options
          * @returns {Object.<string,*>} Plain object
          */
-        BarrageSegMobi1eReply.toObject = function toObject(message, options) {
+        BarrageReply.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
             let object = {};
@@ -214,32 +214,32 @@ export const barrage = $root.barrage = (() => {
         };
 
         /**
-         * Converts this BarrageSegMobi1eReply to JSON.
+         * Converts this BarrageReply to JSON.
          * @function toJSON
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @instance
          * @returns {Object.<string,*>} JSON object
          */
-        BarrageSegMobi1eReply.prototype.toJSON = function toJSON() {
+        BarrageReply.prototype.toJSON = function toJSON() {
             return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
         };
 
         /**
-         * Gets the default type url for BarrageSegMobi1eReply
+         * Gets the default type url for BarrageReply
          * @function getTypeUrl
-         * @memberof barrage.BarrageSegMobi1eReply
+         * @memberof barrage.BarrageReply
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        BarrageSegMobi1eReply.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        BarrageReply.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/barrage.BarrageSegMobi1eReply";
+            return typeUrlPrefix + "/barrage.BarrageReply";
         };
 
-        return BarrageSegMobi1eReply;
+        return BarrageReply;
     })();
 
     barrage.BarrageElem = (function() {
@@ -260,6 +260,8 @@ export const barrage = $root.barrage = (() => {
          * @property {string|null} [action] BarrageElem action
          * @property {number|null} [pool] BarrageElem pool
          * @property {string|null} [idStr] BarrageElem idStr
+         * @property {number|null} [attr] BarrageElem attr
+         * @property {string|null} [animation] BarrageElem animation
          */
 
         /**
@@ -374,6 +376,22 @@ export const barrage = $root.barrage = (() => {
         BarrageElem.prototype.idStr = "";
 
         /**
+         * BarrageElem attr.
+         * @member {number} attr
+         * @memberof barrage.BarrageElem
+         * @instance
+         */
+        BarrageElem.prototype.attr = 0;
+
+        /**
+         * BarrageElem animation.
+         * @member {string} animation
+         * @memberof barrage.BarrageElem
+         * @instance
+         */
+        BarrageElem.prototype.animation = "";
+
+        /**
          * Creates a new BarrageElem instance using the specified properties.
          * @function create
          * @memberof barrage.BarrageElem
@@ -421,6 +439,10 @@ export const barrage = $root.barrage = (() => {
                 writer.uint32(/* id 11, wireType 0 =*/88).int32(message.pool);
             if (message.idStr != null && Object.hasOwnProperty.call(message, "idStr"))
                 writer.uint32(/* id 12, wireType 2 =*/98).string(message.idStr);
+            if (message.attr != null && Object.hasOwnProperty.call(message, "attr"))
+                writer.uint32(/* id 13, wireType 0 =*/104).int32(message.attr);
+            if (message.animation != null && Object.hasOwnProperty.call(message, "animation"))
+                writer.uint32(/* id 14, wireType 2 =*/114).string(message.animation);
             return writer;
         };
 
@@ -505,6 +527,14 @@ export const barrage = $root.barrage = (() => {
                         message.idStr = reader.string();
                         break;
                     }
+                case 13: {
+                        message.attr = reader.int32();
+                        break;
+                    }
+                case 14: {
+                        message.animation = reader.string();
+                        break;
+                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -576,6 +606,12 @@ export const barrage = $root.barrage = (() => {
             if (message.idStr != null && message.hasOwnProperty("idStr"))
                 if (!$util.isString(message.idStr))
                     return "idStr: string expected";
+            if (message.attr != null && message.hasOwnProperty("attr"))
+                if (!$util.isInteger(message.attr))
+                    return "attr: integer expected";
+            if (message.animation != null && message.hasOwnProperty("animation"))
+                if (!$util.isString(message.animation))
+                    return "animation: string expected";
             return null;
         };
 
@@ -629,6 +665,10 @@ export const barrage = $root.barrage = (() => {
                 message.pool = object.pool | 0;
             if (object.idStr != null)
                 message.idStr = String(object.idStr);
+            if (object.attr != null)
+                message.attr = object.attr | 0;
+            if (object.animation != null)
+                message.animation = String(object.animation);
             return message;
         };
 
@@ -666,6 +706,8 @@ export const barrage = $root.barrage = (() => {
                 object.action = "";
                 object.pool = 0;
                 object.idStr = "";
+                object.attr = 0;
+                object.animation = "";
             }
             if (message.id != null && message.hasOwnProperty("id"))
                 if (typeof message.id === "number")
@@ -697,6 +739,10 @@ export const barrage = $root.barrage = (() => {
                 object.pool = message.pool;
             if (message.idStr != null && message.hasOwnProperty("idStr"))
                 object.idStr = message.idStr;
+            if (message.attr != null && message.hasOwnProperty("attr"))
+                object.attr = message.attr;
+            if (message.animation != null && message.hasOwnProperty("animation"))
+                object.animation = message.animation;
             return object;
         };
 

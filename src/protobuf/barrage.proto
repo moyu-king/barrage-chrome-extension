@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package barrage;
 
-message BarrageSegMobi1eReply {
+message BarrageReply {
     repeated BarrageElem elems = 1;
 }
 
@@ -19,4 +19,6 @@ message BarrageElem {
     string action = 10;    // 动作指令(高级弹幕用)
     int32 pool = 11;       // 弹幕池类型
     string idStr = 12;     // 弹幕ID的字符串形式
+    int32 attr = 13;       // 弹幕属性位
+    string animation = 14;  // 动画
 }

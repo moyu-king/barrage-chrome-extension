@@ -4,14 +4,13 @@ import { barrage } from '@/protobuf/compiler/barrage'
 import { instance, Platform } from './base'
 
 export enum BarrageMode {
-  SCROLL = 1,
-  BOTTOM,
-  TOP,
-  REVERSE,
-  CUSTOM,
-  CODE,
-  ADVANTAGE,
-  SCRIPT,
+  SCROLL, // 普通弹幕1-3
+  BOTTOM = 4,
+  TOP = 5,
+  REVERSE = 6,
+  ADVANTAGE = 7,
+  CODE = 8,
+  SCRIPT = 9,
 }
 
 export interface Barrage {
@@ -129,7 +128,7 @@ export class BiliBiliBarrageFetcher {
         responseType: 'arraybuffer',
       })
 
-      const reply = barrage.BarrageSegMobi1eReply.decode(new Uint8Array(buffer))
+      const reply = barrage.BarrageReply.decode(new Uint8Array(buffer))
 
       return reply.elems.map(elem => ({
         content: elem.content ?? '',

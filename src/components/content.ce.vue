@@ -190,20 +190,33 @@ const barrageFilterGroup = computed(() => {
     return group
   }
 
+  // 不同平台的过滤策略不一样
   if (activeMenu.value === Platform.BILIBILI) {
+    let lastScrollTime = 0
+    let lastSpecialTime = 0
+    const scrollInterval = 150
+    const specialInterval = 500
+
     barrages.forEach((barrage) => {
       const { offset, weight, content, mode } = barrage
-      const count = existTimeMap.get(offset)
 
-      if (weight < 2 || content.length < 2 || (count && count >= 3)) {
+      if (weight < 2 || content.length < 2) {
         return
       }
 
-      existTimeMap.set(offset, count ? count + 1 : 1)
-      if (mode === BarrageMode.SCROLL) {
+      if (mode !== BarrageMode.TOP && mode !== BarrageMode.BOTTOM) {
+        if (offset - lastScrollTime < scrollInterval) {
+          return
+        }
+
+        lastScrollTime = offset
         group[0].push(barrage)
       }
       else {
+        if (offset - lastSpecialTime < specialInterval) {
+          return
+        }
+        lastSpecialTime = offset
         group[1].push(barrage)
       }
     })
@@ -218,7 +231,7 @@ const barrageFilterGroup = computed(() => {
       }
 
       existTimeMap.set(offset, count ? count + 1 : 1)
-      if (mode === BarrageMode.SCROLL) {
+      if (mode !== BarrageMode.TOP && mode !== BarrageMode.BOTTOM) {
         group[0].push(barrage)
       }
       else {
@@ -230,6 +243,7 @@ const barrageFilterGroup = computed(() => {
   return group
 })
 
+// 滚动弹幕
 const scrollComments = computed(() => {
   return barrageFilterGroup.value[0].map(item => ({
     text: item.content,
@@ -248,26 +262,27 @@ const scrollComments = computed(() => {
   }))
 })
 
+// 特殊弹幕
 const specialComments = computed(() => {
-  return barrageFilterGroup.value[1].map(item => {
+  return barrageFilterGroup.value[1].map((item) => {
     const mode = item.mode === BarrageMode.TOP ? 'top' : 'bottom'
 
     return {
-    mode,
-    text: item.content,
-    time: Number(item.offset) / 1000,
-    style: {
-      position: 'fixed',
-      fontSize: '16px',
-      color: 'orange',
-      textShadow: `
+      mode,
+      text: item.content,
+      time: Number(item.offset) / 1000,
+      style: {
+        position: 'fixed',
+        fontSize: '16px',
+        color: 'orange',
+        textShadow: `
         -1px -1px #000,
         1px -1px #000,
         -1px  1px #000,
         1px  1px #000
       `,
-    },
-  }
+      },
+    }
   })
 })
 
@@ -284,6 +299,7 @@ function initDanmaku() {
   customDanmaku = new Danmaku({
     container: customBarrageEl.value!,
     media: fakeMedia,
+    speed: 500,
     comments: specialComments.value,
   })
 

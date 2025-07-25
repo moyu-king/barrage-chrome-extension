@@ -3,97 +3,97 @@ import Long = require("long");
 /** Namespace barrage. */
 export namespace barrage {
 
-    /** Properties of a BarrageSegMobi1eReply. */
-    interface IBarrageSegMobi1eReply {
+    /** Properties of a BarrageReply. */
+    interface IBarrageReply {
 
-        /** BarrageSegMobi1eReply elems */
+        /** BarrageReply elems */
         elems?: (barrage.IBarrageElem[]|null);
     }
 
-    /** Represents a BarrageSegMobi1eReply. */
-    class BarrageSegMobi1eReply implements IBarrageSegMobi1eReply {
+    /** Represents a BarrageReply. */
+    class BarrageReply implements IBarrageReply {
 
         /**
-         * Constructs a new BarrageSegMobi1eReply.
+         * Constructs a new BarrageReply.
          * @param [properties] Properties to set
          */
-        constructor(properties?: barrage.IBarrageSegMobi1eReply);
+        constructor(properties?: barrage.IBarrageReply);
 
-        /** BarrageSegMobi1eReply elems. */
+        /** BarrageReply elems. */
         public elems: barrage.IBarrageElem[];
 
         /**
-         * Creates a new BarrageSegMobi1eReply instance using the specified properties.
+         * Creates a new BarrageReply instance using the specified properties.
          * @param [properties] Properties to set
-         * @returns BarrageSegMobi1eReply instance
+         * @returns BarrageReply instance
          */
-        public static create(properties?: barrage.IBarrageSegMobi1eReply): barrage.BarrageSegMobi1eReply;
+        public static create(properties?: barrage.IBarrageReply): barrage.BarrageReply;
 
         /**
-         * Encodes the specified BarrageSegMobi1eReply message. Does not implicitly {@link barrage.BarrageSegMobi1eReply.verify|verify} messages.
-         * @param message BarrageSegMobi1eReply message or plain object to encode
+         * Encodes the specified BarrageReply message. Does not implicitly {@link barrage.BarrageReply.verify|verify} messages.
+         * @param message BarrageReply message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: barrage.IBarrageSegMobi1eReply, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: barrage.IBarrageReply, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified BarrageSegMobi1eReply message, length delimited. Does not implicitly {@link barrage.BarrageSegMobi1eReply.verify|verify} messages.
-         * @param message BarrageSegMobi1eReply message or plain object to encode
+         * Encodes the specified BarrageReply message, length delimited. Does not implicitly {@link barrage.BarrageReply.verify|verify} messages.
+         * @param message BarrageReply message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encodeDelimited(message: barrage.IBarrageSegMobi1eReply, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encodeDelimited(message: barrage.IBarrageReply, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a BarrageSegMobi1eReply message from the specified reader or buffer.
+         * Decodes a BarrageReply message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns BarrageSegMobi1eReply
+         * @returns BarrageReply
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): barrage.BarrageSegMobi1eReply;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): barrage.BarrageReply;
 
         /**
-         * Decodes a BarrageSegMobi1eReply message from the specified reader or buffer, length delimited.
+         * Decodes a BarrageReply message from the specified reader or buffer, length delimited.
          * @param reader Reader or buffer to decode from
-         * @returns BarrageSegMobi1eReply
+         * @returns BarrageReply
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): barrage.BarrageSegMobi1eReply;
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): barrage.BarrageReply;
 
         /**
-         * Verifies a BarrageSegMobi1eReply message.
+         * Verifies a BarrageReply message.
          * @param message Plain object to verify
          * @returns `null` if valid, otherwise the reason why it is not
          */
         public static verify(message: { [k: string]: any }): (string|null);
 
         /**
-         * Creates a BarrageSegMobi1eReply message from a plain object. Also converts values to their respective internal types.
+         * Creates a BarrageReply message from a plain object. Also converts values to their respective internal types.
          * @param object Plain object
-         * @returns BarrageSegMobi1eReply
+         * @returns BarrageReply
          */
-        public static fromObject(object: { [k: string]: any }): barrage.BarrageSegMobi1eReply;
+        public static fromObject(object: { [k: string]: any }): barrage.BarrageReply;
 
         /**
-         * Creates a plain object from a BarrageSegMobi1eReply message. Also converts values to other types if specified.
-         * @param message BarrageSegMobi1eReply
+         * Creates a plain object from a BarrageReply message. Also converts values to other types if specified.
+         * @param message BarrageReply
          * @param [options] Conversion options
          * @returns Plain object
          */
-        public static toObject(message: barrage.BarrageSegMobi1eReply, options?: $protobuf.IConversionOptions): { [k: string]: any };
+        public static toObject(message: barrage.BarrageReply, options?: $protobuf.IConversionOptions): { [k: string]: any };
 
         /**
-         * Converts this BarrageSegMobi1eReply to JSON.
+         * Converts this BarrageReply to JSON.
          * @returns JSON object
          */
         public toJSON(): { [k: string]: any };
 
         /**
-         * Gets the default type url for BarrageSegMobi1eReply
+         * Gets the default type url for BarrageReply
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */
@@ -138,6 +138,12 @@ export namespace barrage {
 
         /** BarrageElem idStr */
         idStr?: (string|null);
+
+        /** BarrageElem attr */
+        attr?: (number|null);
+
+        /** BarrageElem animation */
+        animation?: (string|null);
     }
 
     /** Represents a BarrageElem. */
@@ -184,6 +190,12 @@ export namespace barrage {
 
         /** BarrageElem idStr. */
         public idStr: string;
+
+        /** BarrageElem attr. */
+        public attr: number;
+
+        /** BarrageElem animation. */
+        public animation: string;
 
         /**
          * Creates a new BarrageElem instance using the specified properties.
