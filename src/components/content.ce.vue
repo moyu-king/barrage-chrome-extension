@@ -231,7 +231,7 @@ const scrollComments = computed(() => {
       position: 'fixed',
       fontSize: '16px',
       color: '#fff',
-      opacity: '75%',
+      opacity: '85%',
       textShadow: `
         -1px -1px #000,
         1px -1px #000,
@@ -425,7 +425,7 @@ function handleBubbleMouseleave() {
     bubbleTimeout = null
   }
 
-   isHoverBubble.value = false
+  isHoverBubble.value = false
 }
 
 function handleSliderChange(value: number | number[]) {
