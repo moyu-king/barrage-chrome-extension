@@ -3,28 +3,42 @@ import { Setting } from '@element-plus/icons-vue'
 
 const prefix = 'crx-popup'
 const floatBubbleOpened = ref(true)
+const isCustomPlay = ref(false)
 
-chrome.storage.local.get(['floatBubbleOpened']).then((result) => {
-  const opened = result.floatBubbleOpened
-
-  if (opened !== undefined) {
-    floatBubbleOpened.value = opened
+chrome.storage.local.get(['floatBubbleOpened', 'isCustomPlay']).then((result) => {
+  // 悬浮球显示
+  if (result.floatBubbleOpened !== undefined) {
+    floatBubbleOpened.value = result.floatBubbleOpened
   }
   else {
     floatBubbleOpened.value = true
   }
 
+  // 播放模式
+  if (result.isCustomPlay !== undefined) {
+    isCustomPlay.value = result.isCustomPlay
+  }
+
   watch(floatBubbleOpened, (val) => {
     chrome.storage.local.set({ floatBubbleOpened: val })
-    chrome.tabs.query({}, (tabs) => {
-      tabs.forEach((tab) => {
-        if (tab.id) {
-          chrome.tabs.sendMessage(tab.id, { type: 'popup', floatBubbleOpened: val })
-        }
-      })
+    sendMsgToAllContent({ floatBubbleOpened: val })
+  })
+
+  watch(isCustomPlay, (val) => {
+    chrome.storage.local.set({ isCustomPlay: val })
+    sendMsgToAllContent({ isCustomPlay: val })
+  }, { immediate: true })
+})
+
+function sendMsgToAllContent(msg: Record<string, any>) {
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach((tab) => {
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, { type: 'popup', ...msg })
+      }
     })
   })
-})
+}
 </script>
 
 <template>
@@ -42,8 +56,21 @@ chrome.storage.local.get(['floatBubbleOpened']).then((result) => {
         </div>
         <el-switch v-model="floatBubbleOpened" size="small" />
       </div>
+      <div class="setting-item">
+        <div class="setting-item__label">
+          自动播放模式/自定义播放模式
+        </div>
+        <el-switch v-model="isCustomPlay" size="small" />
+      </div>
     </div>
     <div :class="`${prefix}__footer`">
+      <el-link
+        href="https://github.com/moyu-king/barrage-chrome-extension/blob/master/README.md"
+        target="_blank"
+        underline="never"
+      >
+        使用指南
+      </el-link>
       <div class="external-links">
         <el-link
           href="https://gitee.com/hzz-0809/barrage-chrome-extension"
@@ -93,7 +120,7 @@ chrome.storage.local.get(['floatBubbleOpened']).then((result) => {
   &__footer {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
     height: 32px;
     padding: 0 15px;
     background-color: #eeeff2;
@@ -104,8 +131,8 @@ chrome.storage.local.get(['floatBubbleOpened']).then((result) => {
       gap: 5px;
 
       &__icon {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
       }
     }
   }

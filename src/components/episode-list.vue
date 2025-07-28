@@ -2,16 +2,23 @@
 import type { Episode } from '@/service'
 
 import { ArrowLeftBold } from '@element-plus/icons-vue'
+import { MessageType } from '@/background'
 import { contentInjectionKey } from '@/symbol'
 
+const emits = defineEmits(['readyPlay'])
+
 const {
+  barragesMap,
   selectedEpisode,
   selectedVideoId,
+  selectedVId,
   episodesMap,
   videoMap,
+  isCustomPlay,
 } = inject(contentInjectionKey)!
 
 const prefix = 'crx-episode'
+const loadingSet = ref(new Set())
 
 const episodes = computed(() => {
   if (typeof selectedVideoId.value !== 'number')
@@ -42,6 +49,31 @@ const videoName = computed(() => {
 
 function selectEpisode(episode: Episode) {
   selectedEpisode.value = episode
+
+  if (!isCustomPlay.value && selectedEpisode.value && selectedVideoId.value) {
+    const { vid, duration } = selectedEpisode.value
+    const video = videoMap.value.get(selectedVideoId.value)
+
+    if (!video) {
+      return
+    }
+
+    loadingSet.value.add(vid)
+
+    chrome.runtime.sendMessage(
+      {
+        type: MessageType.GET_BARRAGES,
+        params: { vid, duration, platform: video.platform, filter: true },
+      },
+      (response) => {
+        selectedVideoId.value = video.id
+        selectedVId.value = vid
+        barragesMap.value.set(vid, response.data)
+        emits('readyPlay')
+        loadingSet.value.delete(vid)
+      },
+    )
+  }
 }
 
 function backVideoList() {
@@ -79,6 +111,7 @@ function episodeItemClass(episode: Episode) {
           <el-button
             v-for="episode in items"
             :key="episode.vid"
+            :loading="loadingSet.has(episode.vid)"
             :type="selectedEpisode?.vid === episode.vid ? 'primary' : undefined"
             :title="getEpisodeTitle(episode)"
             :class="episodeItemClass(episode)"

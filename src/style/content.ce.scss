@@ -12,17 +12,18 @@
 @use 'element-plus/theme-chalk/el-radio-button.css';
 @use 'element-plus/theme-chalk/el-message.css';
 @use 'element-plus/theme-chalk/el-tooltip-v2.css';
+@use 'element-plus/theme-chalk/el-notification.css';
 @use './index.scss';
 
 @mixin box-modifier {
   box-shadow: 1px 1px 12px rgba(0, 0, 0, 15%);
-  border: 1px solid rgba(0, 0, 0, 5%);
+  border: 1px solid rgba(0, 0, 0, 10%);
 }
 
 .crx-content {
   @include box-modifier;
   position: fixed;
-  top: 15%;
+  top: 18%;
   right: -72px;
   z-index: 99999;
   display: flex;
@@ -169,6 +170,7 @@
 }
 
 .crx-float-bubble {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -177,7 +179,33 @@
   border-radius: 12px;
   font-size: 12px;
   font-weight: 700;
-  background-image: linear-gradient(100deg, rgba(125, 165, 255, 95%) 0.67%, #6978ff 64%)
+  cursor: pointer;
+  overflow: hidden;
+
+  &::before {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    content: '';
+    background-image: linear-gradient(100deg, rgba(125, 165, 255, 95%) 0.67%, #6978ff 64%);
+  }
+
+  &::after {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background-image: linear-gradient(100deg, rgba(255, 209, 0, 0.95) 0.67%, rgb(255, 166, 0) 64%);
+    content: '';
+    transition: opacity 300ms;
+  }
+
+  &.custom {
+    &::after {
+      opacity: 0%;
+    }
+  }
 }
 
 .crx-barrage-scroll {

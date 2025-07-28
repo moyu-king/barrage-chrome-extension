@@ -4,6 +4,7 @@
 
 @use 'animate.css/source/fading_entrances/fadeInLeft.css';
 @use 'animate.css/source/fading_entrances/fadeInRight.css';
+@use 'animate.css/source/zooming_entrances/zoomIn.css';
 
 // 命名规则：[transition-name]-enter-active， [transition-name]-leave-active，通常成队出现
 // 同方向进出动画
@@ -21,6 +22,14 @@
 
 .fade-in-left-leave-active {
   animation: fadeInRight var(--animation-duration, 300ms) reverse;
+}
+
+.zoom-in-enter-active {
+  animation: zoomIn var(--animation-duration, 300ms) forwards;
+}
+
+.zoom-in-leave-active {
+  animation: zoomIn var(--animation-duration, 300ms) reverse;
 }
 
 // 反方向进出

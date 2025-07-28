@@ -4,12 +4,13 @@ import type { Barrage, Episode, Video } from '@/service'
 import {
   CloseBold,
   Film,
+  Operation,
   Plus,
   Refresh,
   Switch,
 } from '@element-plus/icons-vue'
 import Danmaku from 'danmaku'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import elementPlusVars from 'element-plus/theme-chalk/el-var.css?raw'
 import { MessageType } from '@/background'
 import { useCatchMoveMouse } from '@/hooks/useCatchMouseMove'
@@ -43,15 +44,6 @@ const videoGroup = computed(() => {
   }, {} as Record<Platform, Video[]>)
 })
 
-provide(contentInjectionKey, {
-  videos,
-  selectedVideoId,
-  episodesMap,
-  videoGroup,
-  videoMap,
-  selectedEpisode,
-})
-
 function getVideos() {
   return new Promise<Video[]>((resolve) => {
     chrome.runtime.sendMessage({ type: MessageType.GET_VIDEOS }, (response) => {
@@ -66,15 +58,18 @@ getVideos()
 
 /* ==================== 弹幕容器 ==================== */
 let danmaku: Danmaku | null = null
-let customDanmaku: Danmaku | null = null
+let specialDanmaku: Danmaku | null = null
 let timer: number | null = null
 let lastTime = 0 // 记录上一个时间点，判断进度条方向
 
 const dialog = ref<HTMLElement>()
 const scrollBarrageEl = ref<HTMLElement>()
-const customBarrageEl = ref<HTMLElement>()
-const mediaDuration = ref(0)
+const specialBarrageEl = ref<HTMLElement>()
+const initialized = ref(false)
+const isCustomPlay = ref(false) // 播放模式，自动/自定义
 
+// 自定义播放模式变量
+const mediaDuration = ref(0)
 const fakeMedia = reactive<HTMLMediaElement>({
   // 伪造 video elements
   currentTime: 0, // s
@@ -84,6 +79,20 @@ const fakeMedia = reactive<HTMLMediaElement>({
   playbackRate: 1,
   play: () => {},
 } as any)
+
+// 播放模式选项变化监听
+chrome.storage.local.get(['isCustomPlay']).then((result) => {
+  if (result.isCustomPlay !== undefined) {
+    isCustomPlay.value = result.isCustomPlay
+  }
+
+  initialized.value = true
+})
+chrome.runtime.onMessage.addListener((request) => {
+  if (request.type === 'popup' && 'isCustomPlay' in request) {
+    isCustomPlay.value = request.isCustomPlay
+  }
+})
 
 // 全屏处理
 const isFullscreen = ref(false)
@@ -222,6 +231,7 @@ const scrollComments = computed(() => {
       position: 'fixed',
       fontSize: '16px',
       color: '#fff',
+      opacity: '75%',
       textShadow: `
         -1px -1px #000,
         1px -1px #000,
@@ -260,15 +270,48 @@ function initDanmaku() {
   if (!scrollBarrageEl.value || danmaku)
     return
 
+  let media: HTMLMediaElement | undefined | null
+
+  if (!isCustomPlay.value) {
+    media = document.querySelector('video')
+
+    // 如果页面中未存在video元素，再从iframe中找
+    if (!media) {
+      const iframes = document.querySelectorAll('iframe')
+
+      for (const iframe of iframes) {
+        media = iframe?.contentDocument?.body.querySelector('video')
+
+        if (media) {
+          break
+        }
+      }
+    }
+
+    if (!media) {
+      ElNotification({
+        title: '自动播放模式失效',
+        message: '未能识别页面中的视频播放器，已暂时切换至自定义播放模式。',
+        duration: 5000,
+        appendTo: dialog.value,
+      })
+    }
+  }
+
+  if (!media) {
+    media = fakeMedia
+    isCustomPlay.value = true
+  }
+
   danmaku = new Danmaku({
+    media,
     container: scrollBarrageEl.value!,
-    media: fakeMedia,
     comments: scrollComments.value,
   })
 
-  customDanmaku = new Danmaku({
-    container: customBarrageEl.value!,
-    media: fakeMedia,
+  specialDanmaku = new Danmaku({
+    container: specialBarrageEl.value!,
+    media,
     speed: 500,
     comments: specialComments.value,
   })
@@ -288,8 +331,8 @@ function destroyDanmaku(resetTime = true) {
   stopDanmaku()
   danmaku?.destroy()
   danmaku = null
-  customDanmaku?.destroy()
-  customDanmaku = null
+  specialDanmaku?.destroy()
+  specialDanmaku = null
   mediaDuration.value = 0
 
   if (resetTime) {
@@ -298,6 +341,9 @@ function destroyDanmaku(resetTime = true) {
   }
 }
 
+/**
+ * 自定义播放模式下播放弹幕
+ */
 function playDanmaku() {
   fakeMedia.currentTime += 1
 
@@ -311,14 +357,25 @@ function playDanmaku() {
   }
 }
 
+/**
+ * 非自定义播放模式下弹幕准备
+ */
+function handleReadyPlay() {
+  destroyDanmaku()
+  initDanmaku()
+}
+
 /* ==================== 选项面板 ==================== */
 const prefix = 'crx-content'
+const isHoverBubble = ref(false)
 const playLoading = ref(false)
 const showPopup = ref(false)
 const time = reactive({
   minute: 0,
   second: 0,
 })
+
+let bubbleTimeout: ReturnType<typeof setTimeout> | null = null
 
 const maxTime = computed(() => {
   const max: Record<string, number | undefined> = {
@@ -349,6 +406,26 @@ watch(
 
 function closePopup() {
   showPopup.value = false
+}
+
+function togglePlayMode() {
+  isCustomPlay.value = !isCustomPlay.value
+}
+
+function handleBubbleMouseenter() {
+  bubbleTimeout = setTimeout(() => {
+    isHoverBubble.value = true
+    bubbleTimeout = null
+  }, 300)
+}
+
+function handleBubbleMouseleave() {
+  if (bubbleTimeout) {
+    clearTimeout(bubbleTimeout)
+    bubbleTimeout = null
+  }
+
+   isHoverBubble.value = false
 }
 
 function handleSliderChange(value: number | number[]) {
@@ -528,6 +605,18 @@ onBeforeUnmount(() => {
   observer?.disconnect()
   observer = null
 })
+
+provide(contentInjectionKey, {
+  barragesMap,
+  videos,
+  selectedVId,
+  selectedVideoId,
+  episodesMap,
+  videoGroup,
+  videoMap,
+  selectedEpisode,
+  isCustomPlay,
+})
 </script>
 
 <template>
@@ -538,19 +627,52 @@ onBeforeUnmount(() => {
     popover="manual"
   >
     <Transition name="move-in-right" mode="out-in">
-      <div v-show="isMoving || !isFullscreen || showPopup" :class="`${prefix} ${showPopup ? 'active' : ''}`">
-        <div class="crx-float-bubble">
-          <span style="transform: scale(0.9)">{{ time.minute }}:{{ time.second }}</span>
+      <div
+        v-if="(isMoving || !isFullscreen || showPopup) && initialized"
+        :class="`${prefix} ${showPopup ? 'active' : ''}`"
+      >
+        <div
+          class="crx-float-bubble"
+          :title="`切换弹幕播放模式，当前为${isCustomPlay ? 'Custom' : 'Auto'}`"
+          :class="{ custom: isCustomPlay }"
+          @click="togglePlayMode"
+          @mouseenter="handleBubbleMouseenter"
+          @mouseleave="handleBubbleMouseleave"
+        >
+          <Transition name="zoom-in" mode="out-in">
+            <el-icon v-if="isHoverBubble" size="14">
+              <Switch />
+            </el-icon>
+            <template v-else>
+              <Transition name="zoom-in" mode="out-in">
+                <span v-if="!isCustomPlay">A</span>
+                <template v-else>
+                  <Transition name="zoom-in" mode="out-in">
+                    <span v-if="showPopup">C</span>
+                    <span v-else style="transform: scale(0.9)">{{ time.minute }}:{{ time.second }}</span>
+                  </Transition>
+                </template>
+              </Transition>
+            </template>
+          </Transition>
         </div>
         <div :class="`${prefix}__controls`">
-          <el-icon :class="{ disabled: !currTargetPlatform }" @click="prepareAdd">
+          <el-icon
+            :class="{ disabled: !currTargetPlatform }"
+            :title="`添加视频${!currTargetPlatform ? '，该网址不可操作' : ''}`"
+            @click="prepareAdd"
+          >
             <Plus />
           </el-icon>
-          <el-icon @click="destroyDanmaku()">
+          <el-icon title="重置弹幕" @click="destroyDanmaku()">
             <Refresh />
           </el-icon>
-          <el-icon :class="{ active: showPopup }" @click="showPopup = !showPopup">
-            <Switch />
+          <el-icon
+            :class="{ active: showPopup }"
+            title="播放列表"
+            @click="showPopup = !showPopup"
+          >
+            <Operation />
           </el-icon>
         </div>
         <Transition name="move-in-right">
@@ -574,10 +696,10 @@ onBeforeUnmount(() => {
                 mode="out-in"
               >
                 <VideoList v-if="!selectedVideoId" v-model:active="activeMenu" />
-                <EpisodeList v-else />
+                <EpisodeList v-else @ready-play="handleReadyPlay" />
               </Transition>
             </div>
-            <div :class="`${prefix}-popup__control`">
+            <div v-if="isCustomPlay" :class="`${prefix}-popup__control`">
               <div :class="`${prefix}-popup__buttons`">
                 <el-button
                   :disabled="!selectedEpisode"
@@ -629,7 +751,7 @@ onBeforeUnmount(() => {
       </div>
     </Transition>
     <div ref="scrollBarrageEl" class="crx-barrage-scroll" />
-    <div ref="customBarrageEl" class="crx-barrage-custom" />
+    <div ref="specialBarrageEl" class="crx-barrage-custom" />
     <el-dialog
       v-model="showAddPanel"
       title="添加视频"
