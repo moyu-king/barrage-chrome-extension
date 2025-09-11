@@ -232,19 +232,29 @@ const barrageFilterGroup = computed(() => {
 // 滚动弹幕
 const scrollComments = computed(() => {
   return barrageFilterGroup.value[0].map(item => ({
-    text: item.content,
     time: Number(item.offset) / 1000,
-    style: {
-      position: 'fixed',
-      fontSize: '16px',
-      color: '#fff',
-      opacity: '85%',
-      textShadow: `
-        -1px -1px #000,
-        1px -1px #000,
-        -1px  1px #000,
-        1px  1px #000
-      `,
+    render: () => {
+      const { content } = item
+      const itemEl = document.createElement('div')
+
+      itemEl.innerHTML = content.replace(/\[.*?\]/g, (match) => {
+        if (!match)
+          return ''
+
+        const emoji = currentEmojiMap.value.get(match)
+
+        return emoji
+          ? `<img src="${emoji}" style="width: 1.2em; height: 1.2em; vertical-align: middle; margin-left: 5px" />`
+          : match
+      })
+
+      itemEl.style.display = 'flex'
+      itemEl.style.alignItems = 'center'
+      itemEl.style.fontSize = '16px'
+      itemEl.style.color = '#fff'
+      itemEl.style.opacity = '0.85'
+      itemEl.style.textShadow = '-1px -1px rgba(0, 0, 0, 85%), 1px -1px rgba(0, 0, 0, 85%), -1px 1px rgba(0, 0, 0, 85%), 1px 1px rgba(0, 0, 0, 85%)'
+      return itemEl
     },
   }))
 })
@@ -256,18 +266,29 @@ const specialComments = computed(() => {
 
     return {
       mode,
-      text: item.content,
       time: Number(item.offset) / 1000,
-      style: {
-        position: 'fixed',
-        fontSize: '16px',
-        color: 'orange',
-        textShadow: `
-        -1px -1px #000,
-        1px -1px #000,
-        -1px  1px #000,
-        1px  1px #000
-      `,
+      render: () => {
+        const { content } = item
+        const itemEl = document.createElement('div')
+
+        itemEl.innerHTML = content.replace(/\[.*?\]/g, (match) => {
+          if (!match)
+            return ''
+
+          const emoji = currentEmojiMap.value.get(match)
+
+          return emoji
+            ? `<img src="${emoji}" style="width: 1.2em; height: 1.2em; vertical-align: middle; margin-left: 5px" />`
+            : match
+        })
+
+        itemEl.style.display = 'flex'
+        itemEl.style.alignItems = 'center'
+        itemEl.style.fontSize = '16px'
+        itemEl.style.color = 'orange'
+        itemEl.style.opacity = '0.85'
+        itemEl.style.textShadow = '-1px -1px rgba(0, 0, 0, 85%), 1px -1px rgba(0, 0, 0, 85%), -1px 1px rgba(0, 0, 0, 85%), 1px 1px rgba(0, 0, 0, 85%)'
+        return itemEl
       },
     }
   })
@@ -704,7 +725,10 @@ provide(contentInjectionKey, {
                 mode="out-in"
               >
                 <VideoList v-if="!selectedVideoId" v-model:active="activeMenu" />
-                <EpisodeList v-else @ready-play="handleReadyPlay" />
+                <EpisodeList
+                  v-else
+                  @ready-play="handleReadyPlay"
+                />
               </Transition>
             </div>
             <div v-if="isCustomPlay" :class="`${prefix}-popup__control`">
@@ -754,6 +778,7 @@ provide(contentInjectionKey, {
                 </div>
               </div>
             </div>
+            <div v-else />
           </div>
         </Transition>
       </div>

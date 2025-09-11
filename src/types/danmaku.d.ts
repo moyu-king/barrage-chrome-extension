@@ -1,6 +1,6 @@
 declare module 'danmaku' {
   interface DanmakuItem {
-    text: string
+    text?: string
     time: number
     style?: Record<string, string>
     mode?: string

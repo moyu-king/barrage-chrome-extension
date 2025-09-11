@@ -21,7 +21,7 @@ export async function getTencentEmojis(vid: number) {
     const db = await getDB()
     const video = await db.get('videos', vid)
 
-    if (!video || video.params?.cid || video.params?.vid)
+    if (!video || !video.params?.cid || !video.params?.vid)
       throw new Error('无效视频id')
 
     const data = (await instance.post(

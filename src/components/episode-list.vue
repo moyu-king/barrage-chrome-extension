@@ -6,6 +6,7 @@ import { MessageType } from '@/background'
 import { contentInjectionKey } from '@/symbol'
 
 const emits = defineEmits(['readyPlay'])
+const attrs = useAttrs()
 
 const {
   barragesMap,
@@ -93,7 +94,7 @@ function episodeItemClass(episode: Episode) {
 </script>
 
 <template>
-  <div :class="`${prefix}`">
+  <div v-bind="attrs" :class="prefix">
     <div :class="`${prefix}__header`">
       <div :class="`${prefix}__header-left`" @click="backVideoList">
         <el-icon><ArrowLeftBold /></el-icon>
