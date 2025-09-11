@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Barrage, Episode, Video } from '@/service'
+import type { Barrage, EmojiInfo, Episode, Video } from '@/service'
 
 import {
   CloseBold,
@@ -21,6 +21,7 @@ import VideoList from './video-list.vue'
 
 const videos = ref<Video[]>([])
 const activeMenu = ref(Platform.TENCENT)
+const emojiMap = ref(new Map<Video['id'], EmojiInfo[]>())
 const episodesMap = ref(new Map<number, Episode[]>())
 const selectedVideoId = ref<Video['id']>() // 此为插件内保存的视频id
 const selectedVId = ref<string>('') // 此为视频平台的的视频id
@@ -42,6 +43,12 @@ const videoGroup = computed(() => {
     acc[key].push(v)
     return acc
   }, {} as Record<Platform, Video[]>)
+})
+
+const currentEmojiMap = computed(() => {
+  const emojis = emojiMap.value.get(selectedVideoId.value) ?? []
+
+  return new Map(emojis.map(e => [e.code, e.url]))
 })
 
 function getVideos() {
@@ -616,6 +623,7 @@ provide(contentInjectionKey, {
   videoMap,
   selectedEpisode,
   isCustomPlay,
+  emojiMap,
 })
 </script>
 

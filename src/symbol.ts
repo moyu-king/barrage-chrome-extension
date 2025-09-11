@@ -1,5 +1,5 @@
 import type { InjectionKey } from 'vue'
-import type { Barrage, Episode, Platform, Video } from '@/service'
+import type { Barrage, EmojiInfo, Episode, Platform, Video } from '@/service'
 
 export interface ContentInjection {
   barragesMap: Ref<Map<string, Barrage[]>>
@@ -11,5 +11,6 @@ export interface ContentInjection {
   selectedEpisode: Ref<Episode | null>
   isCustomPlay: Ref<boolean>
   videoGroup: ComputedRef<Record<Platform, Video[]>>
+  emojiMap: Ref<Map<Video['id'], EmojiInfo[]>>
 }
 export const contentInjectionKey: InjectionKey<ContentInjection> = Symbol('contentInjectionKey')

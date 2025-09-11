@@ -3,6 +3,7 @@ import {
   getAllBarrages,
   getAllVideos,
   getEpisodes,
+  getTencentEmojis,
 } from '@/service'
 
 // 请求拦截
@@ -15,6 +16,11 @@ const rules = [
       requestHeaders: [
         {
           header: 'referer',
+          operation: 'set',
+          value: 'https://v.qq.com',
+        },
+        {
+          header: 'origin',
           operation: 'set',
           value: 'https://v.qq.com',
         },
@@ -51,6 +57,7 @@ export enum MessageType {
   GET_EPISODES,
   GET_BARRAGES,
   GET_VIDEO_NAME,
+  GET_VIDEO_EMOJI,
   SYNC_CONTENT_DATA,
 }
 
@@ -97,6 +104,13 @@ chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
     case MessageType.CREATE_VIDEO: {
       const { data } = message
       createVideo(data).then((response) => {
+        sendResponse(response)
+      })
+      break
+    }
+    case MessageType.GET_VIDEO_EMOJI: {
+      const { id } = message
+      getTencentEmojis(id).then((response) => {
         sendResponse(response)
       })
       break

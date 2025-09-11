@@ -14,6 +14,7 @@ const {
   videoGroup,
   episodesMap,
   selectedVideoId,
+  emojiMap,
 } = inject(contentInjectionKey)!
 
 const prefix = 'crx-video-list'
@@ -44,6 +45,13 @@ async function selectVideo(vid: number) {
     episodesMap.value.set(vid, response.data)
     loadingId.value = undefined
     selectedVideoId.value = vid
+  })
+
+  chrome.runtime.sendMessage({
+    type: MessageType.GET_VIDEO_EMOJI,
+    id: vid,
+  }, (response) => {
+    emojiMap.value.set(vid, response.data)
   })
 }
 </script>
