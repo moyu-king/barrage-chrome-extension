@@ -705,7 +705,7 @@ provide(contentInjectionKey, {
           </el-icon>
         </div>
         <Transition name="move-in-right">
-          <div v-show="showPopup" :class="`${prefix}-popup`">
+          <div v-if="showPopup" :class="`${prefix}-popup`">
             <div :class="`${prefix}-popup__header`">
               <div :class="`${prefix}-popup__title`">
                 <el-icon size="16" style="margin-top: 1px">

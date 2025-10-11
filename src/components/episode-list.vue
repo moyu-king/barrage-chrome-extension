@@ -4,6 +4,7 @@ import type { Episode } from '@/service'
 import { ArrowLeftBold } from '@element-plus/icons-vue'
 import { MessageType } from '@/background'
 import { contentInjectionKey } from '@/symbol'
+import ScrollLabel from './scroll-label.ce.vue'
 
 const emits = defineEmits(['readyPlay'])
 const attrs = useAttrs()
@@ -119,7 +120,11 @@ function episodeItemClass(episode: Episode) {
             class="episode-item"
             @click="selectEpisode(episode)"
           >
-            {{ getEpisodeTitle(episode) }}
+            <ScrollLabel
+              v-if="!loadingSet.has(episode.vid)"
+              :content="getEpisodeTitle(episode)"
+              style="text-align: center;"
+            />
           </el-button>
         </div>
       </template>

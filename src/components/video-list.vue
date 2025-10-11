@@ -2,6 +2,7 @@
 import { MessageType } from '@/background'
 import { Platform } from '@/service'
 import { contentInjectionKey } from '@/symbol'
+import ScrollLabel from './scroll-label.ce.vue'
 
 const activeMenu = defineModel<Platform>('active', { default: Platform.TENCENT })
 
@@ -70,7 +71,11 @@ async function selectVideo(vid: number) {
           class="video-item"
           @click="selectVideo(video.id!)"
         >
-          {{ video.name }}
+          <ScrollLabel
+            v-if="loadingId !== video.id"
+            :content="video.name"
+            style="text-align: center;"
+          />
         </el-button>
       </div>
     </el-scrollbar>
