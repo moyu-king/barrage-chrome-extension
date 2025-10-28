@@ -1,9 +1,11 @@
 import {
   createVideo,
+  deleteVideo,
   getAllBarrages,
   getAllVideos,
   getEpisodes,
   getTencentEmojis,
+  updateVideo,
 } from '@/service'
 
 // 请求拦截
@@ -58,6 +60,8 @@ export enum MessageType {
   GET_BARRAGES,
   GET_VIDEO_NAME,
   GET_VIDEO_EMOJI,
+  DELETE_VIDEO,
+  UPDATE_VIDEO,
   SYNC_CONTENT_DATA,
 }
 
@@ -111,6 +115,20 @@ chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
     case MessageType.GET_VIDEO_EMOJI: {
       const { id } = message
       getTencentEmojis(id).then((response) => {
+        sendResponse(response)
+      })
+      break
+    }
+    case MessageType.DELETE_VIDEO: {
+      const { id } = message
+      deleteVideo(id).then((response) => {
+        sendResponse(response)
+      })
+      break
+    }
+    case MessageType.UPDATE_VIDEO: {
+      const { data, id } = message
+      updateVideo(id, data).then((response) => {
         sendResponse(response)
       })
       break

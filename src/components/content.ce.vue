@@ -17,7 +17,7 @@ import { useCatchMoveMouse } from '@/hooks/useCatchMouseMove'
 import { BarrageMode, Platform } from '@/service'
 import { contentInjectionKey } from '@/symbol'
 import EpisodeList from './episode-list.vue'
-import VideoList from './video-list.vue'
+import VideoList from './video-list.ce.vue'
 
 const videos = ref<Video[]>([])
 const activeMenu = ref(Platform.TENCENT)

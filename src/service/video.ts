@@ -55,3 +55,51 @@ export async function createVideo(data: VideoCreateOpt) {
 
   return resp
 }
+
+export async function deleteVideo(id: number) {
+  const resp = {
+    status: 1,
+    message: 'success',
+    data: true,
+  }
+
+  try {
+    const db = await getDB()
+    db.delete('videos', id)
+  }
+  catch (e) {
+    resp.status = 0
+    resp.message = (e as Error).message
+    resp.data = false
+  }
+
+  return resp
+}
+
+export async function updateVideo(id: number, data: Partial<VideoCreateOpt>) {
+  const resp = {
+    status: 1,
+    message: 'success',
+    data: null,
+  } as BaseResponse<Video | null>
+
+  try {
+    const db = await getDB()
+    const video = await db.get('videos', id)
+
+    if (video) {
+      await db.put('videos', { ...video, ...data })
+    }
+    else {
+      throw new Error('未找到视频！')
+    }
+
+    resp.data = { ...video, ...data }
+  }
+  catch (e) {
+    resp.status = 0
+    resp.message = (e as Error).message
+  }
+
+  return resp
+}

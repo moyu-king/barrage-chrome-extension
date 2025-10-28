@@ -11,8 +11,10 @@
 @use 'element-plus/theme-chalk/el-radio-group.css';
 @use 'element-plus/theme-chalk/el-radio-button.css';
 @use 'element-plus/theme-chalk/el-message.css';
-@use 'element-plus/theme-chalk/el-tooltip-v2.css';
+@use 'element-plus/theme-chalk/el-tooltip.css';
 @use 'element-plus/theme-chalk/el-notification.css';
+@use 'element-plus/theme-chalk/el-dropdown.css';
+@use 'element-plus/theme-chalk/el-dropdown-item.css';
 @use './index.scss';
 
 @mixin box-modifier {
@@ -228,42 +230,6 @@
   line-height: 30px;
   pointer-events: none;
   background-color: transparent;
-}
-
-.crx-video-list {
-  display: flex;
-  flex-direction: column;
-  row-gap: 10px;
-  width: 100%;
-  height: 100%;
-
-  .el-segmented {
-    --el-segmented-item-selected-color: var(--el-text-color-primary);
-    --el-segmented-item-selected-bg-color: #ffd100;
-    --el-border-radius-base: 16px;
-
-    width: 100%;
-    padding-right: 10px;
-  }
-
-  &__wrapper {
-    display: grid;
-    gap: 10px;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-
-    .el-button {
-      display: block;
-      padding: 5px;
-      margin: 0;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      overflow: hidden;
-
-      & > span {
-        display: inline;
-      }
-    }
-  }
 }
 
 .crx-episode {
