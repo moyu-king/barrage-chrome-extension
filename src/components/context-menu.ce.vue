@@ -45,7 +45,7 @@ function handleContextmenu(event: MouseEvent) {
             删除
           </el-dropdown-item>
           <el-dropdown-item @click="emits('update')">
-            修改
+            重命名
           </el-dropdown-item>
         </el-dropdown-menu>
       </template>

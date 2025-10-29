@@ -2,6 +2,7 @@ import type { InjectionKey } from 'vue'
 import type { Barrage, EmojiInfo, Episode, Platform, Video } from '@/service'
 
 export interface ContentInjection {
+  dialogEl: Ref<HTMLElement | undefined>
   barragesMap: Ref<Map<string, Barrage[]>>
   videos: Ref<Video[]>
   selectedVideoId: Ref<number | undefined>

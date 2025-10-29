@@ -645,6 +645,7 @@ provide(contentInjectionKey, {
   selectedEpisode,
   isCustomPlay,
   emojiMap,
+  dialogEl: dialog,
 })
 </script>
 

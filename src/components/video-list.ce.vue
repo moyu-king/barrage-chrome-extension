@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { Video } from '@/service'
+
+import { ElMessage } from 'element-plus'
 import { MessageType } from '@/background'
 import { Platform } from '@/service'
 import { contentInjectionKey } from '@/symbol'
@@ -18,10 +21,13 @@ const {
   episodesMap,
   selectedVideoId,
   emojiMap,
+  dialogEl,
 } = inject(contentInjectionKey)!
 
 const prefix = 'crx-video-list'
 const loadingId = ref()
+const renameId = ref<Video['id'] | null>()
+const videoName = ref('')
 
 const platformMenus = computed(() => {
   return (Object.keys(videoGroup.value)).map(key => ({
@@ -29,9 +35,29 @@ const platformMenus = computed(() => {
     label: (platformToName as Record<string, any>)[key],
   }))
 })
-
 const currMenuVideos = computed(() => {
   return videoGroup.value[activeMenu.value] ?? []
+})
+const videoMap = computed(() => {
+  const map = new Map<Video['id'], Video>()
+
+  videos.value.forEach((v) => {
+    if (map.has(v.id))
+      return
+
+    map.set(v.id, v)
+  })
+
+  return map
+})
+
+watch(renameId, (val) => {
+  if (!val) {
+    videoName.value = ''
+  }
+  else {
+    videoName.value = videoMap.value.get(val)?.name ?? ''
+  }
 })
 
 async function selectVideo(vid: number) {
@@ -69,8 +95,45 @@ function handleDelete(id: number) {
   })
 }
 
-function handleUpdate(id: number) {
-  console.log(id)
+function handleRename() {
+  if (!renameId.value) {
+    return
+  }
+
+  if (!videoName.value) {
+    ElMessage({
+      type: 'error',
+      message: '视频名称不能为空！',
+      appendTo: dialogEl.value,
+    })
+
+    return
+  }
+
+  const video = videoMap.value.get(renameId.value)
+
+  if (!video)
+    return
+
+  chrome.runtime.sendMessage({
+    type: MessageType.UPDATE_VIDEO,
+    id: renameId.value,
+    data: { ...video, name: videoName.value },
+  }, (response) => {
+    const { data } = response
+
+    if (!data) {
+      return ElMessage({
+        type: 'error',
+        message: '重命名失败！',
+        appendTo: dialogEl.value,
+      })
+    }
+
+    videos.value = videos.value.filter(v => v.id !== data.id)
+    videos.value.push(data)
+    renameId.value = null
+  })
 }
 </script>
 
@@ -79,27 +142,35 @@ function handleUpdate(id: number) {
     <el-segmented v-model="activeMenu" :options="platformMenus" />
     <el-scrollbar style="flex: 1;">
       <div :class="`${prefix}__wrapper`">
-        <ContextMenu
-          v-for="video in currMenuVideos"
-          :key="video.id"
-          @delete="handleDelete(video.id!)"
-          @update="handleUpdate(video.id!)"
-        >
-          <el-button
-            :type="selectedVideoId === video.id ? 'primary' : undefined"
-            :loading="loadingId === video.id"
-            :title="video.name"
-            tag="div"
-            class="video-item"
-            @click="selectVideo(video.id!)"
-          >
-            <ScrollLabel
-              v-if="loadingId !== video.id"
-              :content="video.name"
-              style="text-align: center;"
+        <template v-for="video in currMenuVideos" :key="video.id">
+          <div v-if="renameId === video.id">
+            <el-input
+              v-model="videoName"
+              autofocus
+              @change="handleRename"
             />
-          </el-button>
-        </ContextMenu>
+          </div>
+          <ContextMenu
+            v-else
+            @delete="handleDelete(video.id!)"
+            @update="renameId = video.id"
+          >
+            <el-button
+              :type="selectedVideoId === video.id ? 'primary' : undefined"
+              :loading="loadingId === video.id"
+              :title="video.name"
+              tag="div"
+              class="video-item"
+              @click="selectVideo(video.id!)"
+            >
+              <ScrollLabel
+                v-if="loadingId !== video.id"
+                :content="video.name"
+                style="text-align: center;"
+              />
+            </el-button>
+          </ContextMenu>
+        </template>
       </div>
     </el-scrollbar>
   </div>
