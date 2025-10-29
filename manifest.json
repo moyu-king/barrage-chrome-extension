@@ -1,7 +1,7 @@
 {
   "name": "Barrage Extension",
   "description": "一个获取视频网站弹幕的拓展，目前支持bilibili和腾讯视频",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "manifest_version": 3,
   "icons": {
     "48": "barrage-icon.png"
