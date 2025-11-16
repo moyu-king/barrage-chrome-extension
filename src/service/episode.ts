@@ -104,10 +104,14 @@ export class TencentEpisodeFetcher {
     this.vid = vid
 
     const pageContextList = await this.getPageContext()
-    const tasks = pageContextList.map(ctx => this.fetchOne(ctx))
-    const data = await Promise.all(tasks)
-
-    return data.flat()
+    if (pageContextList.length) {
+      const tasks = pageContextList.map(ctx => this.fetchOne(ctx))
+      const data = await Promise.all(tasks)
+      return data.flat()
+    }
+    else {
+      return this.fetchOne({ page_context: '', season: '' })
+    }
   }
 
   async fetchOne(pageContext: PageContextItem): Promise<Episode[]> {
@@ -135,7 +139,6 @@ export class TencentEpisodeFetcher {
 
       const episodes: Episode[] = []
       const data = response.data
-
       const moduleListData = data.module_list_datas[0]
       const itemDatas = moduleListData.module_datas[0].item_data_lists.item_datas
 
