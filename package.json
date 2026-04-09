@@ -19,6 +19,7 @@
     "danmaku": "^2.0.8",
     "element-plus": "^2.11.5",
     "idb": "^8.0.3",
+    "pako": "^2.1.0",
     "protobufjs": "^7.5.3",
     "vue": "^3.5.13",
     "vue3-danmaku": "^1.6.1"
@@ -28,6 +29,7 @@
     "@crxjs/vite-plugin": "2.0.0-beta.33",
     "@types/chrome": "^0.0.323",
     "@types/node": "^22.15.24",
+    "@types/pako": "^2.0.4",
     "@typescript-eslint/eslint-plugin": "^8.33.1",
     "@typescript-eslint/parser": "^8.33.1",
     "@vitejs/plugin-vue": "^5.2.3",

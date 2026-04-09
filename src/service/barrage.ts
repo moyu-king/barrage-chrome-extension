@@ -1,5 +1,6 @@
 import type { BaseResponse } from './base'
 
+import pako from 'pako'
 import { barrage } from '@/protobuf/compiler/barrage'
 import { instance, Platform } from './base'
 
@@ -30,6 +31,7 @@ export interface BarrageParams {
 const platformToRequest = {
   [Platform.BILIBILI]: getBiliBiliBarrages,
   [Platform.TENCENT]: getTencentBarrage,
+  [Platform.IQIYI]: getIqiyiBarrage,
 }
 
 export async function getAllBarrages(params: BarrageParams) {
@@ -69,6 +71,20 @@ export async function getTencentBarrage(params: BarrageParams) {
     }
 
     const fetcher = new TencentBarrageFetcher()
+    return fetcher.fetchAll(params.duration, params.vid)
+  }
+  catch {
+    return []
+  }
+}
+
+export async function getIqiyiBarrage(params: BarrageParams) {
+  try {
+    if (!params.duration || !params.vid) {
+      return []
+    }
+
+    const fetcher = new IqiyiBarrageFetcher()
     return fetcher.fetchAll(params.duration, params.vid)
   }
   catch {
@@ -137,6 +153,82 @@ export class BiliBiliBarrageFetcher {
         weight: elem.weight ?? 1,
         mode: elem.mode ?? BarrageMode.SCROLL,
       }))
+    }
+    catch {
+      return []
+    }
+  }
+}
+
+function parseIqiyiStyle(color = '') {
+  return color ? `color:#${color}` : ''
+}
+
+function parseIqiyiMode(position?: string) {
+  if (position === '6')
+    return BarrageMode.TOP
+
+  if (position === '4')
+    return BarrageMode.BOTTOM
+
+  return BarrageMode.SCROLL
+}
+
+function inflateDeflateBuffer(buffer: ArrayBuffer) {
+  const inflated = pako.inflate(new Uint8Array(buffer))
+  return new TextDecoder().decode(inflated)
+}
+
+function getXmlTagText(xml: string, tag: string) {
+  const match = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))
+  return match?.[1] ?? ''
+}
+
+function parseIqiyiBulletInfos(xml: string): Barrage[] {
+  const barrages: Barrage[] = []
+  const matches = xml.matchAll(/<bulletInfo>([\s\S]*?)<\/bulletInfo>/g)
+
+  for (const match of matches) {
+    const itemXml = match[1] || ''
+    const showTime = getXmlTagText(itemXml, 'showTime')
+    const content = getXmlTagText(itemXml, 'content')
+    const likeCount = getXmlTagText(itemXml, 'likeCount')
+    const color = getXmlTagText(itemXml, 'color')
+    const position = getXmlTagText(itemXml, 'position')
+
+    barrages.push({
+      offset: Number(showTime || 0) * 1000,
+      content,
+      weight: Number(likeCount || 1),
+      style: parseIqiyiStyle(color),
+      mode: parseIqiyiMode(position),
+    })
+  }
+
+  return barrages
+}
+
+export class IqiyiBarrageFetcher {
+  private timeOffset = 5 * 60 * 1000
+
+  async fetchAll(duration: number, tvid: string) {
+    const segments = Math.max(1, Math.ceil(duration / this.timeOffset))
+    const tasks = Array.from({ length: segments }, (_, i) => this.fetchOne(tvid, i + 1))
+
+    return (await Promise.all(tasks)).flat()
+  }
+
+  async fetchOne(tvid: string, segment: number) {
+    try {
+      const suffix = tvid.slice(-4)
+      if (suffix.length < 4)
+        return []
+
+      const path = `${suffix.slice(0, 2)}/${suffix.slice(2)}/${tvid}`
+      const baseUrl = `https://cmts.iqiyi.com/bullet/${path}_300_${segment}.z`
+      const buffer: ArrayBuffer = await instance.get(baseUrl, { responseType: 'arraybuffer' })
+      const xml = inflateDeflateBuffer(buffer)
+      return parseIqiyiBulletInfos(xml)
     }
     catch {
       return []

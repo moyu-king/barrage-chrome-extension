@@ -12,6 +12,7 @@ export interface Episode {
 const platformToRequest = {
   [Platform.BILIBILI]: getBiliBiliEpisodes,
   [Platform.TENCENT]: getTencentEpisodes,
+  [Platform.IQIYI]: getIqiyiEpisodes,
 }
 
 /**
@@ -72,6 +73,129 @@ export async function getTencentEpisodes(params: Record<string, any>): Promise<E
     const fetcher = new TencentEpisodeFetcher()
 
     return fetcher.fetchAll(params.cid, params.vid)
+  }
+  catch {
+    return []
+  }
+}
+
+function parseDurationToMs(duration: string) {
+  if (!duration)
+    return 0
+
+  const pieces = duration.split(':').map(Number)
+  if (!pieces.length || pieces.some(Number.isNaN))
+    return 0
+
+  if (pieces.length === 3) {
+    const [hour, minute, second] = pieces
+    return (hour * 3600 + minute * 60 + second) * 1000
+  }
+
+  if (pieces.length === 2) {
+    const [minute, second] = pieces
+    return (minute * 60 + second) * 1000
+  }
+
+  return pieces[0] * 1000
+}
+
+/**
+ * 获取爱奇艺剧集
+ */
+export async function getIqiyiEpisodes(params: Record<string, any>): Promise<Episode[]> {
+  try {
+    const aid = params?.aid
+    const tvid = params?.tvid
+
+    const toEpisode = (item: Record<string, any>) => {
+      const order = Number(item.order ?? 0)
+      const orderTitle = order > 0 ? String(order) : ''
+
+      return {
+        vid: String(item.tvId ?? ''),
+        duration: parseDurationToMs(String(item.duration ?? '0')),
+        season: '',
+        title: String(orderTitle || item.shortTitle || item.name || ''),
+        union_title: String(orderTitle || item.shortTitle || item.name || ''),
+      }
+    }
+
+    const getAlbumEpisodes = async (albumId: string, totalEpisodes?: number) => {
+      const pageSize = totalEpisodes && totalEpisodes > 0
+        ? Math.min(totalEpisodes, 200)
+        : 50
+      const firstResp = (await instance.get('https://pcw-api.iqiyi.com/albums/album/avlistinfo', {
+        params: {
+          aid: albumId,
+          page: 1,
+          size: pageSize,
+        },
+      })) as Record<string, any>
+      const firstList = (firstResp?.data?.epsodelist || []) as Record<string, any>[]
+      const total = Math.max(
+        Number(totalEpisodes ?? 0),
+        Number(firstResp?.data?.total ?? 0),
+        firstList.length,
+      )
+      const pageCount = Math.max(1, Math.ceil(total / pageSize))
+
+      const restTasks = Array.from({ length: pageCount - 1 }, (_, i) =>
+        instance.get('https://pcw-api.iqiyi.com/albums/album/avlistinfo', {
+          params: {
+            aid: albumId,
+            page: i + 2,
+            size: pageSize,
+          },
+        }) as Promise<Record<string, any>>)
+      const restResp = await Promise.all(restTasks)
+      const restList = restResp.flatMap(resp => (resp?.data?.epsodelist || []) as Record<string, any>[])
+      const merged = [...firstList, ...restList]
+      const seen = new Set<string>()
+
+      return merged
+        .map(toEpisode)
+        .filter((item) => {
+          if (!item.vid || seen.has(item.vid))
+            return false
+
+          seen.add(item.vid)
+          return true
+        })
+    }
+
+    // 优先：有专辑 id 直接拉整季
+    if (aid) {
+      return await getAlbumEpisodes(String(aid))
+    }
+
+    if (!tvid)
+      return []
+
+    // 兜底：只有 tvid 时，先查 playervideoinfo 取 albumId，再拉整季
+    const response = (await instance.get('https://pcw-api.iqiyi.com/video/video/playervideoinfo', {
+      params: { tvid },
+    })) as Record<string, any>
+    const data = response?.data
+
+    if (!data)
+      return []
+
+    const albumId = String(data.albumId ?? data.aid ?? '')
+    if (albumId) {
+      const episodes = await getAlbumEpisodes(albumId, Number(data.es ?? 0))
+      if (episodes.length)
+        return episodes
+    }
+
+    // 再兜底：专辑列表拉不到时返回单集
+    return [{
+      vid: String(data.tvid ?? tvid),
+      duration: Number(data.plg ?? 0) * 1000,
+      season: '',
+      title: String(data.vn || ''),
+      union_title: String(data.vn || ''),
+    }]
   }
   catch {
     return []

@@ -13,6 +13,7 @@ const activeMenu = defineModel<Platform>('active', { default: Platform.TENCENT }
 const platformToName = {
   [Platform.TENCENT]: '腾讯',
   [Platform.BILIBILI]: 'bilibili',
+  [Platform.IQIYI]: '爱奇艺',
 }
 
 const {

@@ -51,6 +51,29 @@ const rules = [
       resourceTypes: ['xmlhttprequest'],
     },
   },
+  {
+    id: 3,
+    priority: 1,
+    action: {
+      type: 'modifyHeaders',
+      requestHeaders: [
+        {
+          header: 'referer',
+          operation: 'set',
+          value: 'https://www.iqiyi.com',
+        },
+        {
+          header: 'origin',
+          operation: 'set',
+          value: 'https://www.iqiyi.com',
+        },
+      ],
+    },
+    condition: {
+      urlFilter: 'iqiyi.com',
+      resourceTypes: ['xmlhttprequest'],
+    },
+  },
 ] as Array<chrome.declarativeNetRequest.Rule>
 
 export enum MessageType {
@@ -67,7 +90,7 @@ export enum MessageType {
 
 chrome.runtime.onInstalled?.addListener(() => {
   chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [1, 2],
+    removeRuleIds: [1, 2, 3],
     addRules: rules,
   })
 })

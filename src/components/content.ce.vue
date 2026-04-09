@@ -207,12 +207,30 @@ const barrageFilterGroup = computed(() => {
       }
     })
   }
-  else {
+  else if (activeMenu.value === Platform.TENCENT) {
     barrages.forEach((barrage) => {
       const { offset, weight, content, mode } = barrage
       const count = existTimeMap.get(offset)
 
       if ((count && count >= 3) || content.length <= 1 || weight < 50) {
+        return
+      }
+
+      existTimeMap.set(offset, count ? count + 1 : 1)
+      if (mode !== BarrageMode.TOP && mode !== BarrageMode.BOTTOM) {
+        group[0].push(barrage)
+      }
+      else {
+        group[1].push(barrage)
+      }
+    })
+  }
+  else {
+    barrages.forEach((barrage) => {
+      const { offset, weight, content, mode } = barrage
+      const count = existTimeMap.get(offset)
+
+      if ((count && count >= 3) || content.length <= 1 || weight < 1) {
         return
       }
 
@@ -514,6 +532,7 @@ function playBarrages() {
 const platformOptions = [
   { label: 'bilibili', value: Platform.BILIBILI },
   { label: '腾讯视频', value: Platform.TENCENT },
+  { label: '爱奇艺', value: Platform.IQIYI },
 ]
 
 let observer: MutationObserver | null = null
@@ -521,6 +540,8 @@ let observer: MutationObserver | null = null
 const targetPlatform = [
   { url: 'https://www.bilibili.com/bangumi/play/', platform: Platform.BILIBILI },
   { url: 'https://v.qq.com/x/cover/', platform: Platform.TENCENT },
+  { url: 'https://www.iqiyi.com/', platform: Platform.IQIYI },
+  { url: 'https://www.iq.com/', platform: Platform.IQIYI },
 ]
 const lastUrl = ref(location.href)
 const showAddPanel = ref(false)
@@ -533,6 +554,94 @@ const formData = reactive({
 const currTargetPlatform = computed(() => {
   return targetPlatform.find(item => lastUrl.value.includes(item.url))
 })
+
+function parseIqiyiVideoParams() {
+  const getTvidByPath = () => {
+    const parseBase36ToBigInt = (value: string) => {
+      const chars = '0123456789abcdefghijklmnopqrstuvwxyz'
+      let result = 0n
+
+      for (const char of value.toLowerCase()) {
+        const idx = chars.indexOf(char)
+        if (idx < 0)
+          return null
+
+        result = result * 36n + BigInt(idx)
+      }
+
+      return result
+    }
+
+    const match = location.pathname.match(/\/[vwp]_([a-z0-9]+)\.html/i)
+    const pathId = match?.[1]
+    if (!pathId)
+      return ''
+
+    try {
+      const value = parseBase36ToBigInt(pathId)
+      if (value === null)
+        return ''
+
+      const key = 0x75706971676Cn
+      let tvid = value ^ key
+      if (tvid < 900000n) {
+        tvid = (tvid + 900000n) * 100n
+      }
+
+      return tvid.toString()
+    }
+    catch {
+      return ''
+    }
+  }
+
+  const readAttr = (...keys: string[]) => {
+    for (const key of keys) {
+      const el = document.querySelector<HTMLElement>(`[${key}]`)
+      const value = el?.getAttribute(key)
+      if (value) {
+        return value
+      }
+    }
+    return ''
+  }
+
+  const tvidFromAttr = readAttr('data-tvid', 'data-player-tvid', 'data-tv-id')
+  const vidFromAttr = readAttr('data-vid', 'data-player-vid')
+  const aidFromAttr = readAttr('data-aid', 'data-albumid', 'data-album-id')
+
+  const scriptText = Array.from(document.scripts).map(item => item.textContent || '').join('\n')
+  const html = document.documentElement.innerHTML
+  const mergedText = `${scriptText}\n${html}`
+
+  const tvidMatch
+    = mergedText.match(/"tvId"\s*:\s*"?(\d{8,})"?/i)
+      || mergedText.match(/"tvid"\s*:\s*"?(\d{8,})"?/i)
+      || mergedText.match(/\\"tvId\\"\s*:\s*"?(\d{8,})"?/i)
+      || mergedText.match(/\\"tvid\\"\s*:\s*"?(\d{8,})"?/i)
+      || mergedText.match(/(?:^|\W)tvid\s*[:=]\s*["']?(\d{8,})["']?/i)
+
+  const vidMatch
+    = mergedText.match(/"vid"\s*:\s*"([a-zA-Z0-9]+)"/)
+      || mergedText.match(/\\"vid\\"\s*:\s*\\"([a-zA-Z0-9]+)\\"/)
+
+  const aidMatch
+    = mergedText.match(/"albumId"\s*:\s*"?(\d{8,})"?/i)
+      || mergedText.match(/"aid"\s*:\s*"?(\d{8,})"?/i)
+      || mergedText.match(/\\"albumId\\"\s*:\s*"?(\d{8,})"?/i)
+      || mergedText.match(/\\"aid\\"\s*:\s*"?(\d{8,})"?/i)
+
+  const tvid = tvidFromAttr || tvidMatch?.[1] || getTvidByPath()
+  if (!tvid) {
+    return null
+  }
+
+  return {
+    tvid,
+    vid: vidFromAttr || vidMatch?.[1] || '',
+    aid: aidFromAttr || aidMatch?.[1] || '',
+  }
+}
 
 watch(showAddPanel, async (val) => {
   if (!val || !currTargetPlatform.value) {
@@ -571,6 +680,25 @@ watch(showAddPanel, async (val) => {
       formData.platform = Platform.TENCENT
       formData.params = { cid, vid }
       formData.name = document.title.split(' ')[0].split('_')[0]
+      break
+    }
+    case Platform.IQIYI: {
+      const params = parseIqiyiVideoParams()
+
+      if (!params) {
+        showAddPanel.value = false
+        ElMessage({
+          type: 'error',
+          message: '未能识别出爱奇艺视频参数！',
+          appendTo: dialog.value,
+        })
+        break
+      }
+
+      formData.platform = Platform.IQIYI
+      formData.params = params
+      formData.name = document.title.split(' ')[0].split('_')[0]
+      break
     }
   }
 })

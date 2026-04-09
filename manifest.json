@@ -1,6 +1,6 @@
 {
   "name": "Barrage Extension",
-  "description": "一个获取视频网站弹幕的拓展，目前支持bilibili和腾讯视频",
+  "description": "一个获取视频网站弹幕的拓展，目前支持bilibili、腾讯视频和爱奇艺",
   "version": "2.1.2",
   "manifest_version": 3,
   "icons": {
@@ -20,7 +20,10 @@
   "host_permissions": [
     "*://*.qq.com/*",
     "*://*.bilibili.com/*",
-    "*://api.bilibili.com/*"
+    "*://api.bilibili.com/*",
+    "*://*.iqiyi.com/*",
+    "*://pcw-api.iqiyi.com/*",
+    "*://cmts.iqiyi.com/*"
   ],
   "content_scripts": [
     {

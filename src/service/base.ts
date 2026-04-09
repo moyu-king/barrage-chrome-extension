@@ -24,6 +24,7 @@ instance.interceptors.response.use(
 export enum Platform {
   TENCENT = 1,
   BILIBILI,
+  IQIYI,
 }
 
 export interface Video {
