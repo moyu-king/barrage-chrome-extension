@@ -49,6 +49,12 @@
     opacity: 100%;
   }
 
+  &.idle-fullscreen {
+    right: -72px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
   &__controls {
     display: flex;
     align-items: center;
@@ -306,7 +312,7 @@
   margin: 0;
   padding: 0;
   border-width: 0;
-  overflow: hidden;
+  overflow: visible;
   user-select: none;
   background-color: transparent;
 }

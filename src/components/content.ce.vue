@@ -786,8 +786,14 @@ provide(contentInjectionKey, {
   >
     <Transition name="move-in-right" mode="out-in">
       <div
-        v-if="(isMoving || !isFullscreen || showPopup) && initialized"
-        :class="`${prefix} ${showPopup ? 'active' : ''}`"
+        v-if="initialized"
+        :class="[
+          prefix,
+          {
+            'active': showPopup,
+            'idle-fullscreen': !isMoving && isFullscreen && !showPopup,
+          },
+        ]"
       >
         <div
           class="crx-float-bubble"
