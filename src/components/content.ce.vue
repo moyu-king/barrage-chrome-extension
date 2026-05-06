@@ -159,6 +159,7 @@ document.addEventListener('fullscreenchange', () => {
   dialog.value.hidePopover()
   dialog.value.showPopover()
   danmaku?.resize()
+  specialDanmaku?.resize()
 })
 
 const barrageFilterGroup = computed(() => {

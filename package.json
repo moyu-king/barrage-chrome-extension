@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^4.13.2",
-    "@crxjs/vite-plugin": "2.0.0-beta.33",
+    "@crxjs/vite-plugin": "2.4.0",
     "@types/chrome": "^0.0.323",
     "@types/node": "^22.15.24",
     "@types/pako": "^2.0.4",

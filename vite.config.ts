@@ -7,7 +7,7 @@ import Icons from 'unplugin-icons/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import Components from 'unplugin-vue-components/vite'
 import { defineConfig } from 'vite'
-import manifest from './manifest.json' assert { type: 'json' }
+import manifest from './manifest.json' with { type: 'json' }
 
 export default defineConfig({
   resolve: {
