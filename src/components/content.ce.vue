@@ -54,11 +54,29 @@ const currentEmojiMap = computed(() => {
 function getVideos() {
   return new Promise<Video[]>((resolve) => {
     chrome.runtime.sendMessage({ type: MessageType.GET_VIDEOS }, (response) => {
+      if (chrome.runtime.lastError || !response?.data) {
+        resolve(videos.value)
+        return
+      }
+
       videos.value = response.data
-      activeMenu.value = Number.parseInt(Object.keys(videoGroup.value)[0])
+      const platforms = Object.keys(videoGroup.value)
+      if (platforms.length && !platforms.includes(String(activeMenu.value)))
+        activeMenu.value = Number.parseInt(platforms[0])
+
       resolve(videos.value)
     })
   })
+}
+
+function upsertVideo(video: Video) {
+  const idx = videos.value.findIndex(v => v.id === video.id)
+  if (idx >= 0)
+    videos.value.splice(idx, 1, video)
+  else
+    videos.value = [...videos.value, video]
+
+  activeMenu.value = video.platform
 }
 
 getVideos()
@@ -718,7 +736,11 @@ async function saveVideo() {
     const appendTo = dialog.value
 
     if (response.data) {
-      chrome.runtime.sendMessage({ type: MessageType.SYNC_CONTENT_DATA })
+      upsertVideo(response.data)
+      chrome.runtime.sendMessage({
+        type: MessageType.SYNC_CONTENT_DATA,
+        video: response.data,
+      })
 
       ElMessage({
         type: 'success',
@@ -745,11 +767,15 @@ function prepareAdd() {
   showAddPanel.value = true
 }
 
-// 同步数据
+// 同步数据（popup 添加后会带上 video，优先本地插入，避免只刷新看不到）
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === MessageType.SYNC_CONTENT_DATA) {
+  if (message.type !== MessageType.SYNC_CONTENT_DATA)
+    return
+
+  if (message.video?.id != null)
+    upsertVideo(message.video as Video)
+  else
     getVideos()
-  }
 })
 
 onMounted(() => {

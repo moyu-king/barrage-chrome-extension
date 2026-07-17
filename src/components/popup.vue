@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { Setting } from '@element-plus/icons-vue'
+import { Search, Setting } from '@element-plus/icons-vue'
+import { defineAsyncComponent } from 'vue'
+
+const SearchPanel = defineAsyncComponent(() => import('./search-panel.vue'))
 
 const prefix = 'crx-popup'
+const activeTab = ref<'search' | 'settings'>('search')
 const floatBubbleOpened = ref(true)
 const isCustomPlay = ref(false)
 
@@ -44,24 +48,43 @@ function sendMsgToAllContent(msg: Record<string, any>) {
 <template>
   <div :class="prefix">
     <div :class="`${prefix}__header`">
-      <el-icon size="18">
-        <Setting />
-      </el-icon>
-      <span style="margin-left: 5px;">设置</span>
+      <div
+        :class="`${prefix}__tab`"
+        :data-active="activeTab === 'search'"
+        @click="activeTab = 'search'"
+      >
+        <el-icon size="16">
+          <Search />
+        </el-icon>
+        <span>搜索</span>
+      </div>
+      <div
+        :class="`${prefix}__tab`"
+        :data-active="activeTab === 'settings'"
+        @click="activeTab = 'settings'"
+      >
+        <el-icon size="16">
+          <Setting />
+        </el-icon>
+        <span>设置</span>
+      </div>
     </div>
     <div :class="`${prefix}__content`">
-      <div class="setting-item">
-        <div class="setting-item__label">
-          悬浮球关/开
+      <SearchPanel v-if="activeTab === 'search'" />
+      <template v-if="activeTab === 'settings'">
+        <div class="setting-item">
+          <div class="setting-item__label">
+            悬浮球关/开
+          </div>
+          <el-switch v-model="floatBubbleOpened" size="small" />
         </div>
-        <el-switch v-model="floatBubbleOpened" size="small" />
-      </div>
-      <div class="setting-item">
-        <div class="setting-item__label">
-          自动播放模式/自定义播放模式
+        <div class="setting-item">
+          <div class="setting-item__label">
+            自动播放模式/自定义播放模式
+          </div>
+          <el-switch v-model="isCustomPlay" size="small" />
         </div>
-        <el-switch v-model="isCustomPlay" size="small" />
-      </div>
+      </template>
     </div>
     <div :class="`${prefix}__footer`">
       <el-link
@@ -95,17 +118,38 @@ function sendMsgToAllContent(msg: Record<string, any>) {
 .crx-popup {
   display: flex;
   flex-direction: column;
-  width: 300px;
-  height: 300px;
+  width: 400px;
+  height: 550px;
   color: rgba(#000, 75%);
 
   &__header {
     display: flex;
     align-items: center;
-    font-size: 16px;
-    padding: 5px 15px;
-    font-weight: 700;
     border-bottom: 1px solid rgba(#000, 12%);
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex: 1;
+    padding: 10px 0;
+    font-size: 14px;
+    cursor: pointer;
+    color: rgba(#000, 45%);
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+    user-select: none;
+
+    &[data-active="true"] {
+      color: rgba(#000, 85%);
+      border-bottom-color: #ffd100;
+    }
+
+    &:hover:not([data-active="true"]) {
+      color: rgba(#000, 65%);
+    }
   }
 
   &__content {

@@ -1,3 +1,4 @@
+import { MessageType } from '@/message-type'
 import {
   createVideo,
   deleteVideo,
@@ -5,8 +6,11 @@ import {
   getAllVideos,
   getEpisodes,
   getTencentEmojis,
+  searchVideos,
   updateVideo,
 } from '@/service'
+
+export { MessageType }
 
 // 请求拦截
 const rules = [
@@ -76,18 +80,6 @@ const rules = [
   },
 ] as Array<chrome.declarativeNetRequest.Rule>
 
-export enum MessageType {
-  GET_VIDEOS,
-  CREATE_VIDEO,
-  GET_EPISODES,
-  GET_BARRAGES,
-  GET_VIDEO_NAME,
-  GET_VIDEO_EMOJI,
-  DELETE_VIDEO,
-  UPDATE_VIDEO,
-  SYNC_CONTENT_DATA,
-}
-
 chrome.runtime.onInstalled?.addListener(() => {
   chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: [1, 2, 3],
@@ -156,14 +148,26 @@ chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
       })
       break
     }
+    case MessageType.SEARCH_VIDEO: {
+      const { platform, keyword, page } = message
+      searchVideos(platform, keyword, page).then((response) => {
+        sendResponse(response)
+      })
+      break
+    }
     case MessageType.SYNC_CONTENT_DATA: {
-      chrome.tabs.query({}, (tabs) => {
+      const payload = { type: MessageType.SYNC_CONTENT_DATA, video: message.video }
+      chrome.tabs.query({ status: 'complete' }, (tabs) => {
         tabs.forEach((tab) => {
-          if (tab.id) {
-            chrome.tabs.sendMessage(tab.id, { type: MessageType.SYNC_CONTENT_DATA })
-          }
+          if (!tab.id || !tab.url || !/^https?:/i.test(tab.url))
+            return
+          chrome.tabs.sendMessage(tab.id, payload, () => {
+            // 部分标签页未注入 content script，忽略错误
+            void chrome.runtime.lastError
+          })
         })
       })
+      break
     }
   }
 
