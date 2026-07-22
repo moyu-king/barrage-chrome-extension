@@ -180,6 +180,14 @@ document.addEventListener('fullscreenchange', () => {
   specialDanmaku?.resize()
 })
 
+// 修复全屏下弹幕 canvas 被视频覆盖：鼠标恢复移动时强制 resize 刷新合成层
+watch(isMoving, (moving) => {
+  if (moving && isFullscreen.value) {
+    danmaku?.resize()
+    specialDanmaku?.resize()
+  }
+})
+
 const barrageFilterGroup = computed(() => {
   const group = [[], []] as [Barrage[], Barrage[]]
   const existTimeMap = new Map<number, number>()
