@@ -101,6 +101,7 @@ const scrollBarrageEl = ref<HTMLElement>()
 const specialBarrageEl = ref<HTMLElement>()
 const initialized = ref(false)
 const isCustomPlay = ref(false) // 播放模式，自动/自定义
+const isEpisodeOrderDesc = ref(false) // 剧集列表排序，正序/倒序
 const barrageSettings = reactive({ ...DEFAULT_BARRAGE_SETTINGS })
 
 const currentPlatform = computed(() => {
@@ -159,9 +160,11 @@ const fakeMedia = reactive<HTMLMediaElement>({
 } as any)
 
 // 播放模式选项变化监听
-chrome.storage.local.get(['isCustomPlay', 'barrageSettings']).then((result) => {
+chrome.storage.local.get(['isCustomPlay', 'barrageSettings', 'episodeOrderDesc']).then((result) => {
   if (result.isCustomPlay !== undefined)
     isCustomPlay.value = result.isCustomPlay
+
+  isEpisodeOrderDesc.value = result.episodeOrderDesc === true
 
   Object.assign(barrageSettings, normalizeBarrageSettings(result.barrageSettings))
   initialized.value = true
@@ -864,6 +867,7 @@ provide(contentInjectionKey, {
   videoMap,
   selectedEpisode,
   isCustomPlay,
+  isEpisodeOrderDesc,
   emojiMap,
   dialogEl: dialog,
 })

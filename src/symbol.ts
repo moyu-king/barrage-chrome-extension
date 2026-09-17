@@ -11,6 +11,7 @@ export interface ContentInjection {
   videoMap: ComputedRef<Map<Video['id'], Video>>
   selectedEpisode: Ref<Episode | null>
   isCustomPlay: Ref<boolean>
+  isEpisodeOrderDesc: Ref<boolean>
   videoGroup: ComputedRef<Record<Platform, Video[]>>
   emojiMap: Ref<Map<Video['id'], EmojiInfo[]>>
 }

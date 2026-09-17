@@ -355,15 +355,36 @@
   &__header {
     display: flex;
     align-items: center;
+    padding-right: 10px;
     font-size: 14px;
 
     &-left {
       display: flex;
       align-items: center;
+      min-width: 0;
       cursor: pointer;
 
       &:hover {
         color: var(--el-color-primary)
+      }
+    }
+
+    &-order {
+      display: flex;
+      flex-shrink: 0;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      padding: 2px 8px;
+      font-size: 12px;
+      color: rgba(0, 0, 0, 55%);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: color 300ms, background-color 300ms;
+
+      &:hover {
+        color: var(--el-color-primary);
+        background-color: rgba(105, 120, 255, 10%);
       }
     }
   }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import type { ScrollbarInstance } from 'element-plus'
 import type { Episode } from '@/service'
 
-import { ArrowLeftBold } from '@element-plus/icons-vue'
+import { ArrowLeftBold, Sort } from '@element-plus/icons-vue'
 import { MessageType } from '@/background'
 import { contentInjectionKey } from '@/symbol'
 import ScrollLabel from './scroll-label.ce.vue'
@@ -17,10 +18,12 @@ const {
   episodesMap,
   videoMap,
   isCustomPlay,
+  isEpisodeOrderDesc,
 } = inject(contentInjectionKey)!
 
 const prefix = 'crx-episode'
 const loadingSet = ref(new Set())
+const scrollbarRef = ref<ScrollbarInstance>()
 
 const episodes = computed(() => {
   if (typeof selectedVideoId.value !== 'number')
@@ -28,17 +31,40 @@ const episodes = computed(() => {
 
   return episodesMap.value.get(selectedVideoId.value) ?? []
 })
-const episodesGroup = computed(() => {
-  return episodes.value.reduce((acc, v) => {
-    const key = v.season
 
-    if (!acc[key]) {
-      acc[key] = []
+interface EpisodeGroup {
+  season: string
+  items: Episode[]
+}
+
+/**
+ * 按 season 分组，保持平台返回的顺序；倒序时季度与季内集数一并反转。
+ * 这里用数组而非以 season 为键的对象：season 若是 "1"、"2" 这类整数样式的字符串，
+ * JS 对象会按数值升序重排键，插入顺序失效，反转也就无从谈起。
+ */
+const episodesGroup = computed<EpisodeGroup[]>(() => {
+  const groups: EpisodeGroup[] = []
+  const groupMap = new Map<string, EpisodeGroup>()
+
+  for (const episode of episodes.value) {
+    let group = groupMap.get(episode.season)
+
+    if (!group) {
+      group = { season: episode.season, items: [] }
+      groupMap.set(episode.season, group)
+      groups.push(group)
     }
 
-    acc[key].push(v)
-    return acc
-  }, {} as Record<string, Episode[]>)
+    group.items.push(episode)
+  }
+
+  if (isEpisodeOrderDesc.value) {
+    groups.reverse() // 最新一季排最前
+    for (const group of groups)
+      group.items.reverse() // 季内集数反转
+  }
+
+  return groups
 })
 
 const videoName = computed(() => {
@@ -82,6 +108,12 @@ function backVideoList() {
   selectedVideoId.value = undefined
 }
 
+function toggleEpisodeOrder() {
+  isEpisodeOrderDesc.value = !isEpisodeOrderDesc.value
+  chrome.storage.local.set({ episodeOrderDesc: isEpisodeOrderDesc.value })
+  nextTick(() => scrollbarRef.value?.setScrollTop(0))
+}
+
 function getEpisodeTitle(episode: Episode) {
   const { union_title, title, duration } = episode
   return Number(duration) < 60 * 1000 * 3 ? union_title : title // 小于3分钟视为预告片
@@ -103,15 +135,23 @@ function episodeItemClass(episode: Episode) {
           {{ videoName }}
         </div>
       </div>
+      <div
+        :class="`${prefix}__header-order`"
+        :title="isEpisodeOrderDesc ? '当前倒序（最新在前），点击切回正序' : '当前正序，点击切换为倒序'"
+        @click="toggleEpisodeOrder"
+      >
+        <el-icon><Sort /></el-icon>
+        <span>{{ isEpisodeOrderDesc ? '倒序' : '正序' }}</span>
+      </div>
     </div>
-    <el-scrollbar>
-      <template v-for="(items, season) in episodesGroup" :key="season">
-        <div v-if="Object.keys(episodesGroup).length > 1" :class="`${prefix}__season`">
-          {{ season }}
+    <el-scrollbar ref="scrollbarRef">
+      <template v-for="group in episodesGroup" :key="group.season">
+        <div v-if="episodesGroup.length > 1 && group.season" :class="`${prefix}__season`">
+          {{ group.season }}
         </div>
         <div :class="`${prefix}__wrapper`">
           <el-button
-            v-for="episode in items"
+            v-for="episode in group.items"
             :key="episode.vid"
             :loading="loadingSet.has(episode.vid)"
             :type="selectedEpisode?.vid === episode.vid ? 'primary' : undefined"
