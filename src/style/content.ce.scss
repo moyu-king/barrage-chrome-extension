@@ -1,3 +1,4 @@
+@use './theme.scss' as *;
 @use 'element-plus/theme-chalk/el-icon.css';
 @use 'element-plus/theme-chalk/el-button.css';
 @use 'element-plus/theme-chalk/el-input-number.css';
@@ -8,8 +9,6 @@
 @use 'element-plus/theme-chalk/el-form.css';
 @use 'element-plus/theme-chalk/el-dialog.css';
 @use 'element-plus/theme-chalk/el-overlay.css';
-@use 'element-plus/theme-chalk/el-radio-group.css';
-@use 'element-plus/theme-chalk/el-radio-button.css';
 @use 'element-plus/theme-chalk/el-message.css';
 @use 'element-plus/theme-chalk/el-tooltip.css';
 @use 'element-plus/theme-chalk/el-notification.css';
@@ -68,12 +67,7 @@
 
       &.active,
       &:hover {
-        color: #6978ff;
-      }
-
-      &.disabled {
-        color: #c8c9cc;
-        cursor: not-allowed;
+        color: $brand;
       }
     }
   }
@@ -85,7 +79,6 @@
     top: 51px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
     width: 400px;
     height: 500px;
     color: #000;
@@ -125,45 +118,151 @@
 
     &__body{
       flex: 1;
-      padding-left: 10px;
+      padding: 10px 0 10px 10px;
       overflow: hidden;
     }
 
+    // 播放控制台：整块做成有色调的「托盘」，与上方的剧集列表拉开层次
     &__control {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      border-top: 1px solid rgba(0, 0, 0, 15%);
-      padding: 10px 30px;
+      gap: 6px;
+      padding: 10px 14px 12px;
+      background-image: linear-gradient(180deg, #f6f7fd, #e2e8f8);
+      border-top: 1px solid rgba($brand,22%);
+      // 让剧集列表看起来是从托盘下方滚过去的
+      box-shadow: 0 -8px 16px -12px rgba(31, 35, 41, 30%);
+
+      .el-slider {
+        // 自定义属性的值不会被 Sass 求值，必须用插值
+        --el-slider-main-bg-color: #{$brand};
+        --el-slider-runway-bg-color: rgba(0, 0, 0, 10%);
+        --el-slider-height: 5px;
+        --el-slider-button-size: 14px;
+        // 给滑块手柄留出越界的余量，否则端点紧贴托盘边缘。
+        // 必须显式声明 box-sizing：shadow tree 里继承不到宿主页面的 * 规则，
+        // 而 EP 的 .el-slider 是 width:100% 且默认 content-box，加 padding 会撑出去。
+        box-sizing: border-box;
+        height: 26px;
+        padding: 0 8px;
+      }
 
       .el-slider__button {
-        width: 12px;
-        height: 12px;
+        box-shadow: 0 1px 4px rgba($brand,45%);
+      }
+    }
+
+    // 循环 / 传输键 / 重置 三段居中对称，传输键组留在正中
+    &__transport {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+
+      &-main {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      // 双类名提升特异性，压过下面 `.el-button { padding: 10px }`
+      .el-button.el-button {
+        flex: none;
+        // 显式给高度：EP 的 small 尺寸固定 24px，再叠 padding 会把内容区压到装不下图标
+        height: 26px;
+        padding: 0 10px;
+        color: rgba(0, 0, 0, 65%);
+        background-color: rgba(255, 255, 255, 85%);
+        border-color: rgba(0, 0, 0, 12%);
+        transition: color 200ms, background-color 200ms, border-color 200ms;
+
+        &:hover:not(.is-disabled) {
+          color: $brand;
+          background-color: #fff;
+          border-color: rgba($brand,50%);
+        }
+      }
+
+      // 播放/暂停是这里唯一的实心按钮，主次分明
+      .el-button--primary.el-button--primary {
+        color: #fff;
+        background-color: $brand;
+        border-color: $brand;
+        box-shadow: 0 2px 6px rgba($brand,40%);
+
+        &:hover:not(.is-disabled) {
+          color: #fff;
+          background-color: #7d8aff;
+          border-color: #7d8aff;
+        }
+      }
+
+      // 播放中改用琥珀色：蓝↔橙是最稳妥的可辨色对，
+      // 只换色相不动形状和重量，按钮依然是这一行的视觉锚点
+      .el-button--primary.el-button--primary.playing {
+        background-color: #f0a020;
+        border-color: #f0a020;
+        box-shadow: 0 2px 6px rgba(240, 160, 32, 40%);
+
+        &:hover:not(.is-disabled) {
+          background-color: #ffb445;
+          border-color: #ffb445;
+        }
+      }
+
+      // 循环开启：柔和品牌底色，不去抢播放按钮的视觉重量
+      .el-button.active {
+        color: $brand;
+        background-color: rgba($brand,18%);
+        border-color: rgba($brand,45%);
+      }
+
+      // 必须排在最后：上面几条特异性相同，靠源码顺序决出禁用态
+      .el-button.el-button.is-disabled {
+        color: rgba(0, 0, 0, 30%);
+        background-color: rgba(255, 255, 255, 55%);
+        border-color: rgba(0, 0, 0, 8%);
+        box-shadow: none;
       }
     }
 
     &__timer {
       display: flex;
       align-items: center;
-      gap: 12px;
-      width: 100%;
-
-      .el-input__wrapper {
-        padding: 0 5px !important;
-      }
+      justify-content: center;
+      gap: 2px;
 
       .el-input-number {
-        width: 2rem;
+        width: 2.4rem;
+      }
+
+      .el-input__wrapper {
+        padding: 0 4px !important;
+        background-color: rgba(255, 255, 255, 85%);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 10%) inset;
+        transition: box-shadow 200ms;
+
+        &:hover {
+          box-shadow: 0 0 0 1px rgba($brand,45%) inset;
+        }
+
+        &.is-focus {
+          box-shadow: 0 0 0 1px $brand inset;
+        }
       }
 
       .el-input__inner {
         font-size: 12px;
+        font-variant-numeric: tabular-nums;
       }
     }
 
-    &__buttons {
-      display: flex;
-      gap: 10px;
+    &__duration {
+      margin-left: 8px;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: rgba(0, 0, 0, 45%);
+      white-space: nowrap;
     }
 
     .el-scrollbar {
@@ -213,20 +312,21 @@
 
     &__item {
       .el-slider {
-        --el-slider-main-bg-color: #6978ff;
+        // 自定义属性的值不会被 Sass 求值，必须用插值，否则会原样输出 $brand
+        --el-slider-main-bg-color: #{$brand};
         --el-slider-runway-bg-color: #e7e9f7;
-        --el-slider-stop-bg-color: rgba(105, 120, 255, 35%);
+        --el-slider-stop-bg-color: #{rgba($brand, 35%)};
         height: 20px;
       }
 
       .el-slider__button {
         width: 14px;
         height: 14px;
-        border-color: #6978ff;
+        border-color: $brand;
       }
 
       .el-segmented {
-        --el-segmented-item-selected-bg-color: #6978ff;
+        --el-segmented-item-selected-bg-color: #{$brand};
         --el-segmented-item-selected-color: #fff;
         width: 100%;
       }
@@ -244,7 +344,7 @@
       font-size: 13px;
 
       strong {
-        color: #6978ff;
+        color: $brand;
         font-size: 12px;
         font-weight: 600;
       }
@@ -260,7 +360,7 @@
       padding: 9px 10px;
       border-radius: 7px;
       color: rgba(0, 0, 0, 55%);
-      background-color: rgba(105, 120, 255, 7%);
+      background-color: rgba($brand,7%);
       font-size: 11px;
       line-height: 1.55;
     }
@@ -292,8 +392,9 @@
   width: 40px;
   height: 28px;
   border-radius: 12px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: -0.5px; // 自定义模式下要放下 5 个字符的 mm:ss
   cursor: pointer;
   overflow: hidden;
 
@@ -303,7 +404,7 @@
     z-index: -1;
     border-radius: inherit;
     content: '';
-    background-image: linear-gradient(100deg, rgba(125, 165, 255, 95%) 0.67%, #6978ff 64%);
+    background-image: linear-gradient(100deg, rgba(125, 165, 255, 95%) 0.67%, $brand 64%);
   }
 
   &::after {
@@ -384,7 +485,7 @@
 
       &:hover {
         color: var(--el-color-primary);
-        background-color: rgba(105, 120, 255, 10%);
+        background-color: rgba($brand,10%);
       }
     }
   }
@@ -463,3 +564,4 @@
     flex: 1;
   }
 }
+

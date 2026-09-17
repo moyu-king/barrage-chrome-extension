@@ -12,4 +12,6 @@ export enum MessageType {
   UPDATE_VIDEO,
   SYNC_CONTENT_DATA,
   SEARCH_VIDEO,
+  /** popup → 内容脚本：弹出「添加当前页面」确认框（解析在页面里做，爱奇艺需要 DOM） */
+  OPEN_ADD_PANEL,
 }

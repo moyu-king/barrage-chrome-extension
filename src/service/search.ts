@@ -299,7 +299,7 @@ async function searchTencent(keyword: string, page: number): Promise<SearchResul
 /**
  * 从 iQiyi 页面 URL 中提取 tvid（base36 解码 + XOR）
  */
-function extractTvidFromUrl(pageUrl: string): string {
+export function extractTvidFromUrl(pageUrl: string): string {
   try {
     const match = pageUrl.match(/\/[vwp]_([a-z0-9]+)\.html/i)
     const pathId = match?.[1]

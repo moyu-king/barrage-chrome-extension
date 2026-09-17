@@ -1,0 +1,26 @@
+@use 'sass:color';
+
+// 插件品牌靛蓝。同时作为 Element Plus 的主题色 —— 默认的 #409eff 偏青，
+// 和这里的靛蓝放在同一个界面里会看成两种蓝。
+$brand: #6978ff;
+
+/**
+ * Element Plus 的默认主题定义在页面文档的 :root 上，再继承进 custom element 的 shadow tree。
+ * 这里在更近的祖先上重新声明，因此不依赖样式表的注入顺序：
+ * - :host 命中 content script 的 shadow tree
+ * - :root 命中 popup 这类普通页面
+ * 各自在不适用的场景下匹配不到任何元素，不会互相干扰。
+ *
+ * 派生色沿用 Element Plus 自己的配方（与原色按比例混白/混黑），保证 hover、disabled
+ * 等状态和主题色是同一套色阶。
+ */
+:host,
+:root {
+  --el-color-primary: #{$brand};
+  --el-color-primary-light-3: #{color.mix(#fff, $brand, 30%)};
+  --el-color-primary-light-5: #{color.mix(#fff, $brand, 50%)};
+  --el-color-primary-light-7: #{color.mix(#fff, $brand, 70%)};
+  --el-color-primary-light-8: #{color.mix(#fff, $brand, 80%)};
+  --el-color-primary-light-9: #{color.mix(#fff, $brand, 90%)};
+  --el-color-primary-dark-2: #{color.mix(#000, $brand, 20%)};
+}

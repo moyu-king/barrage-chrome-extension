@@ -115,6 +115,9 @@ function sendMsgToAllContent(msg: Record<string, any>) {
 </template>
 
 <style lang="scss">
+// 只取副作用：把 Element Plus 主题色对齐插件品牌色
+@use '../style/theme.scss';
+
 .crx-popup {
   display: flex;
   flex-direction: column;

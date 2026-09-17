@@ -17,7 +17,6 @@ const {
   selectedVId,
   episodesMap,
   videoMap,
-  isCustomPlay,
   isEpisodeOrderDesc,
 } = inject(contentInjectionKey)!
 
@@ -78,11 +77,19 @@ const videoName = computed(() => {
 function selectEpisode(episode: Episode) {
   selectedEpisode.value = episode
 
-  if (!isCustomPlay.value && selectedEpisode.value && selectedVideoId.value) {
+  // 自动与自定义模式都要加载：自定义模式靠它加载弹幕并停在 0:00
+  if (selectedEpisode.value && selectedVideoId.value) {
     const { vid, duration } = selectedEpisode.value
     const video = videoMap.value.get(selectedVideoId.value)
 
     if (!video) {
+      return
+    }
+
+    // 命中缓存则跳过网络请求，直接让宿主重建实例
+    if (barragesMap.value.has(vid)) {
+      selectedVId.value = vid
+      emits('readyPlay')
       return
     }
 

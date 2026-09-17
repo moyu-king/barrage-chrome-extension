@@ -24,17 +24,19 @@ pnpm protoc       # 根据 src/protobuf/barrage.proto 重新生成 protobuf 绑�
 |------|------|------|
 | Service Worker | `src/background.ts` | 消息中枢、declarativeNetRequest 跨域规则、连接 content ↔ popup |
 | Content Script | `src/content.ts` | 注入到每个页面。通过 `defineCustomElement` 创建 Web Component（`<crx-content>`）并挂载一个 Vue 包装组件 |
-| Popup | `src/popup.ts` | 工具栏按钮弹窗（设置面板） |
+| Popup | `src/popup.ts` | 工具栏按钮弹窗（搜索/手动添加视频 + 设置面板） |
 
 ### 消息流转
 
 ```
 Content Script ←→ Service Worker ←→ 平台 API（Bilibili/腾讯/爱奇艺）
-     ↕
-   Popup（设置项，持久化在 chrome.storage.local）
+     ↕                    ↑
+   Popup（搜索添加 / 设置项）  └── 手动添加：popup 直接 chrome.tabs.sendMessage 到内容脚本
 ```
 
 Service Worker（`background.ts`）是消息路由器。它根据 `MessageType` 枚举将消息分发到 service 层。所有期望回调的 `chrome.runtime.sendMessage` 调用必须在监听器中 `return true`（异步 `sendResponse` 模式）。
+
+例外：`MessageType.OPEN_ADD_PANEL`（popup → 内容脚本，弹「添加当前页面」确认框）由 popup 直接 `chrome.tabs.sendMessage` 发给标签页，**不经 background**，因此 `background.ts` 里没有对应 case。手动添加的参数解析与保存全部在内容脚本里完成（爱奇艺必须读页面 DOM），popup 只用 `matchManualAddPlatform` 判断能否添加，成功后关闭自己以免挡住页面弹窗。监听器与弹窗都在 `content.ce.vue` 中；解析是同步的，所以**不要 `return true`**。
 
 ### 数据层
 
@@ -60,12 +62,20 @@ Service Worker（`background.ts`）是消息路由器。它根据 `MessageType` 
 - **`danmaku`** — 滚动弹幕，标准速度
 - **`specialDanmaku`** — 顶部/底部固定弹幕，speed=500
 
-两者共享一个媒体元素（自动模式用真实的 `<video>`，自定义模式用 `fakeMedia` 响应式对象）。在 `initDanmaku()` 中一起创建，在 `destroyDanmaku()` 中一起销毁。Danmaku 库构造函数内部会调用 `resize()`，因此仅在视口/布局变化（例如全屏切换）后才需要显式调用 resize。
+两者共享一个媒体元素（自动模式用真实的 `<video>`，自定义模式用 `fakeMedia` 响应式对象）。在 `initDanmaku()` 中一起创建，在 `destroyInstances()` 中一起销毁（`destroyDanmaku()` 在其之上额外停表与复位时间）。Danmaku 库构造函数内部会调用 `resize()`，因此仅在视口/布局变化（例如全屏切换）后才需要显式调用 resize。
 
 ### 播放模式
 
 - **自动模式**：同步到页面上的真实 `<video>` 元素。找不到视频时回退到自定义模式。
-- **自定义模式**：使用响应式 `fakeMedia` 对象。用户通过滑块 + 分钟/秒输入框控制进度。`setInterval` 每秒将 `fakeMedia.currentTime` 加 1。
+- **自定义模式**：使用响应式 `fakeMedia` 对象驱动。控件为播放/暂停、±10 秒步进、进度条、分/秒输入框，另有循环播放开关；到达结尾自动暂停。切换模式或选中剧集时会自动加载该集弹幕并停在 0:00。
+
+`fakeMedia` 是手写的伪媒体对象，有几个不显然的约束：
+
+- Danmaku 库是事件驱动的（构造时绑定 `play`/`playing`/`pause`/`waiting`/`seeking`），所以 `addEventListener`/`removeEventListener` 由模块内的 `mediaListeners` 事件表实现，**不能写成空函数**。补上之后暂停 = 库自己停掉 RAF（弹幕冻在原地）、seek = 库自己重算二分游标（不必销毁重建）。
+- 只派发 `play` / `pause` / `seeking`；库绑的 `playing` / `waiting` 是缓冲语义，伪媒体没有缓冲。
+- `fakeMedia.paused` **只有一个写点**：`initDanmaku()` 构造实例之前设为 `!isPlaying.value`。库构造函数据此决定是否自动 `seek()+play()`，所以重建实例时能自动续播，不需要额外的状态记录。其余地方改播放态一律走 `setLibraryPaused()` 发事件。
+- 时间推进用 `requestAnimationFrame` + `performance.now()` 的真实 delta（`timeDriverTick`），不是 `setInterval` 累加。暂停时重新播种 `lastFrameWall` 因而不累积漂移；`visibilitychange` 与 `MAX_FRAME_DELTA` 共同防止后台/长卡顿后的时间跳变。
+- `applySeek()` 是所有定位操作的唯一入口（钳制 + 写 `currentTime` + 派发 `seeking`）。
 
 ### Web Components（`.ce.vue` 文件）
 
@@ -88,10 +98,12 @@ Content Script 的 UI 使用 Vue Custom Elements 以避免与宿主页面的 CSS
 | 文件 | 用途 |
 |------|------|
 | `src/background.ts` | Service Worker：消息路由、网络请求规则、`MessageType` 枚举 |
-| `src/components/content.ce.vue` | 核心：所有弹幕逻辑、全屏处理、视频/剧集增删改查 UI（约 960 行） |
+| `src/components/content.ce.vue` | 核心：所有弹幕逻辑、全屏处理、视频/剧集增删改查 UI、手动添加确认弹窗（约 1270 行） |
+| `src/components/search-panel.vue` | Popup 搜索面板：搜索添加、当前页面卡片（点添加后由内容脚本弹确认框） |
 | `src/service/base.ts` | Axios 实例、IndexedDB 初始化、`Platform` 枚举、`Video` 接口 |
 | `src/service/barrage.ts` | 弹幕获取（3 个平台抓取器）、`Barrage`/`BarrageMode` 类型 |
 | `src/service/episode.ts` | 剧集获取（3 个平台）、`TencentEpisodeFetcher` 类 |
+| `src/service/manual-add.ts` | 手动添加：URL→平台映射 + 按 URL/按页面 DOM 解析视频参数 |
 | `src/symbol.ts` | `provide/inject` 键 + `ContentInjection` 接口 |
 | `vite.config.ts` | 路径别名 `@/` → `src/`、crx 插件、自动导入配置 |
 | `manifest.json` | 扩展清单（权限、content scripts、service worker） |

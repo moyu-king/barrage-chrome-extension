@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { SearchResult } from '@/service'
+import type { SearchResult, VideoCreateOpt } from '@/service'
 import { Loading, Search } from '@element-plus/icons-vue'
 import { MessageType } from '@/message-type'
-import { isSearchResultValid } from '@/service'
+import { isSearchResultValid, matchManualAddPlatform } from '@/service'
 import { Platform } from '@/service/base'
 
 const platformOptions = [
@@ -19,6 +19,40 @@ const searched = ref(false)
 const errorMsg = ref('')
 const addingSet = ref<Set<string>>(new Set())
 let searchSeq = 0
+
+/* ==================== 当前页面（手动添加） ==================== */
+const pageTab = ref<{ id: number, url: string, title: string } | null>(null)
+const pageAdding = ref(false)
+
+const pagePlatform = computed(() => matchManualAddPlatform(pageTab.value?.url))
+
+// 不搜索时结果区让位给「当前页面」卡片，可手动添加才显示
+const showPageCard = computed(() => (
+  !searching.value && !searched.value && !keyword.value.trim() && !!pagePlatform.value
+))
+
+function queryActiveTab(): Promise<chrome.tabs.Tab | undefined> {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => resolve(tabs[0]))
+  })
+}
+
+// popup 每次打开都是新实例，不需要监听标签页变化
+queryActiveTab().then((tab) => {
+  if (!tab?.id || !tab.url)
+    return
+
+  pageTab.value = { id: tab.id, url: tab.url, title: tab.title || '' }
+
+  // 平台选择器对齐当前页面：卡片与搜索结果默认就落在你正在看的站点上
+  const platform = matchManualAddPlatform(tab.url)
+  if (platform)
+    selectedPlatform.value = platform
+})
+
+function platformLabel(platform?: Platform): string {
+  return platformOptions.find(item => item.value === platform)?.label ?? ''
+}
 
 function getResultKey(result: SearchResult): string {
   return `${result.platform}-${JSON.stringify(result.params)}`
@@ -37,6 +71,40 @@ function resetResults() {
 watch(selectedPlatform, () => {
   resetResults()
 })
+
+// 清空搜索框即回到空闲态，卡片重新出现
+watch(keyword, (value) => {
+  if (!value.trim())
+    resetResults()
+})
+
+/**
+ * 创建视频并广播给内容脚本，搜索添加与手动添加共用
+ */
+function sendCreateVideo(data: VideoCreateOpt): Promise<{ ok: boolean, message?: string }> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({
+      type: MessageType.CREATE_VIDEO,
+      data,
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        resolve({ ok: false, message: chrome.runtime.lastError.message })
+        return
+      }
+
+      if (!response?.data) {
+        resolve({ ok: false, message: response?.message })
+        return
+      }
+
+      chrome.runtime.sendMessage({
+        type: MessageType.SYNC_CONTENT_DATA,
+        video: response.data,
+      })
+      resolve({ ok: true })
+    })
+  })
+}
 
 async function doSearch() {
   const kw = keyword.value.trim()
@@ -81,7 +149,7 @@ async function doSearch() {
   )
 }
 
-function addVideo(result: SearchResult) {
+async function addVideo(result: SearchResult) {
   if (!isSearchResultValid(result)) {
     ElMessage.error('该结果缺少必要参数，无法添加')
     return
@@ -93,35 +161,47 @@ function addVideo(result: SearchResult) {
 
   addingSet.value = new Set([...addingSet.value, key])
 
-  chrome.runtime.sendMessage(
-    {
-      type: MessageType.CREATE_VIDEO,
-      data: {
-        name: result.title,
-        platform: result.platform,
-        params: result.params,
-      },
-    },
-    (response) => {
-      addingSet.value = new Set([...addingSet.value].filter(k => k !== key))
+  const res = await sendCreateVideo({
+    name: result.title,
+    platform: result.platform,
+    params: result.params,
+  })
 
-      if (chrome.runtime.lastError) {
-        ElMessage.error(chrome.runtime.lastError.message || '添加失败')
-        return
-      }
+  addingSet.value = new Set([...addingSet.value].filter(k => k !== key))
 
-      if (response?.data) {
-        ElMessage.success('添加成功')
-        chrome.runtime.sendMessage({
-          type: MessageType.SYNC_CONTENT_DATA,
-          video: response.data,
-        })
-      }
-      else {
-        ElMessage.error(response?.message || '添加失败')
-      }
-    },
-  )
+  if (res.ok)
+    ElMessage.success('添加成功')
+  else
+    ElMessage.error(res.message || '添加失败')
+}
+
+/**
+ * 交给页面弹确认框：参数解析（爱奇艺要读页面 DOM）与保存都在内容脚本里完成。
+ * 成功时页面已经在弹窗了，popup 随即关闭，免得挡住它。
+ */
+function handlePageAdd() {
+  const tab = pageTab.value
+  if (!tab)
+    return
+
+  pageAdding.value = true
+
+  chrome.tabs.sendMessage(tab.id, { type: MessageType.OPEN_ADD_PANEL }, (response) => {
+    pageAdding.value = false
+
+    if (chrome.runtime.lastError) {
+      ElMessage.error('未能打开添加弹窗，请检查悬浮球开关或刷新页面')
+      return
+    }
+
+    // 解析失败的原因由页面回报，留在 popup 上显示
+    if (!response?.status) {
+      ElMessage.error(response?.message || '未能识别出视频资源！')
+      return
+    }
+
+    window.close()
+  })
 }
 </script>
 
@@ -151,7 +231,31 @@ function addVideo(result: SearchResult) {
 
     <div class="search-panel__results">
       <el-scrollbar>
-        <div v-if="!searched && !searching" class="search-panel__empty">
+        <div v-if="!searched && !searching && showPageCard" class="search-panel__list">
+          <div class="search-item">
+            <div class="search-item__info">
+              <div class="search-item__title" :title="pageTab?.title">
+                {{ pageTab?.title || '当前页面' }}
+              </div>
+              <div class="search-item__meta">
+                <span class="search-item__tag" :class="`search-item__tag--${pagePlatform}`">
+                  {{ platformLabel(pagePlatform) }}
+                </span>
+                <span class="search-item__sub">当前页面</span>
+              </div>
+            </div>
+            <el-button
+              size="small"
+              type="primary"
+              :loading="pageAdding"
+              @click="handlePageAdd"
+            >
+              添加
+            </el-button>
+          </div>
+        </div>
+
+        <div v-if="!searched && !searching && !showPageCard" class="search-panel__empty">
           <el-icon size="40" color="#ccc">
             <Search />
           </el-icon>
@@ -190,7 +294,7 @@ function addVideo(result: SearchResult) {
               </div>
               <div class="search-item__meta">
                 <span class="search-item__tag" :class="`search-item__tag--${result.platform}`">
-                  {{ platformOptions.find(p => p.value === result.platform)?.label }}
+                  {{ platformLabel(result.platform) }}
                 </span>
                 <span v-if="metaText(result)" class="search-item__sub">
                   {{ metaText(result) }}

@@ -5,17 +5,20 @@ import {
   CloseBold,
   Film,
   Operation,
-  Plus,
   Refresh,
+  RefreshLeft,
+  RefreshRight,
   Setting,
   Switch,
+  VideoPause,
+  VideoPlay,
 } from '@element-plus/icons-vue'
 import Danmaku from 'danmaku'
 import { ElMessage, ElNotification } from 'element-plus'
 import elementPlusVars from 'element-plus/theme-chalk/el-var.css?raw'
 import { MessageType } from '@/background'
 import { useCatchMoveMouse } from '@/hooks/useCatchMouseMove'
-import { BarrageMode, Platform } from '@/service'
+import { BarrageMode, Platform, resolveManualAddFromDocument } from '@/service'
 import { contentInjectionKey } from '@/symbol'
 import {
   BASE_BARRAGE_SPEED,
@@ -93,8 +96,6 @@ getVideos()
 /* ==================== 弹幕容器 ==================== */
 let danmaku: Danmaku | null = null
 let specialDanmaku: Danmaku | null = null
-let timer: number | null = null
-let lastTime = 0 // 记录上一个时间点，判断进度条方向
 
 const dialog = ref<HTMLElement>()
 const scrollBarrageEl = ref<HTMLElement>()
@@ -147,17 +148,92 @@ const densityLevel = computed(() => {
   return '密集'
 })
 
+/* ==================== 伪造媒体的事件表 ==================== */
+/**
+ * Danmaku 库是事件驱动的（构造时绑定 play/playing/pause/waiting/seeking），
+ * 把 addEventListener 实现成空函数等于废掉库的全部能力。
+ * 这里手写事件表补上：暂停 = 库自己停掉 RAF、弹幕冻在原地；seek = 库自己重算游标。
+ *
+ * 不能用 class extends EventTarget —— reactive() 的 Proxy 会破坏 EventTarget 的内部槽，
+ * dispatchEvent 会抛 Illegal invocation。下面这些方法不依赖 this，可以安全放进 reactive 对象。
+ */
+type MediaEventType = 'play' | 'pause' | 'seeking'
+type MediaEventHandler = () => void
+
+const mediaListeners = new Map<MediaEventType, Set<MediaEventHandler>>()
+
+function addMediaListener(type: MediaEventType, handler: MediaEventHandler) {
+  let set = mediaListeners.get(type)
+
+  if (!set) {
+    set = new Set()
+    mediaListeners.set(type, set)
+  }
+
+  set.add(handler)
+}
+
+function removeMediaListener(type: MediaEventType, handler: MediaEventHandler) {
+  mediaListeners.get(type)?.delete(handler)
+}
+
+/** 只派发 play / pause / seeking —— 库绑的 playing / waiting 是缓冲语义，伪造媒体没有缓冲 */
+function emitMediaEvent(type: MediaEventType) {
+  const set = mediaListeners.get(type)
+
+  if (!set?.size)
+    return
+
+  // 快照后再遍历：handler 内部可能触发 destroy → unbindEvents 修改同一个 Set
+  for (const handler of [...set])
+    handler()
+}
+
+/** 防御：构造中途抛异常会留下孤儿 handler */
+function clearMediaListeners() {
+  mediaListeners.clear()
+}
+
 // 自定义播放模式变量
-const mediaDuration = ref(0)
-const fakeMedia = reactive<HTMLMediaElement>({
-  // 伪造 video elements
-  currentTime: 0, // s
-  addEventListener: () => {},
-  removeEventListener: () => {},
-  paused: false,
+const fakeMedia = reactive({
+  currentTime: 0, // s，单位是秒，与播放时钟一致
+  paused: true, // 关键：构造库实例时据此决定是否自动开播，true 表示停在原地
   playbackRate: 1,
-  play: () => {},
-} as any)
+  addEventListener: addMediaListener,
+  removeEventListener: removeMediaListener,
+})
+
+/* ==================== 播放时钟 ==================== */
+let rafId: number | null = null
+let lastFrameWall = 0 // performance 时间基准(ms)，0 = 未播种
+let resumeAfterSeek = false
+let loadedVId = '' // 当前弹幕实例装载的是哪个剧集
+const MAX_FRAME_DELTA = 0.25 // s，单帧最大推进量（兜底）
+const STEP_SECONDS = 10
+
+const isPlaying = ref(false) // 用户意图，唯一的播放态来源
+const isSeeking = ref(false) // 是否正在拖动进度条
+const loopEnabled = ref(false) // 循环播放，仅会话内有效
+const playLoading = ref(false) // 弹幕请求中
+
+// 全模块唯一的时长来源，单位统一为秒（Episode.duration 是毫秒）
+const totalDuration = computed(() => {
+  const ms = selectedEpisode.value?.duration ?? 0
+
+  return ms > 0 ? Math.max(1, Math.round(ms / 1000)) : 0
+})
+
+const canControl = computed(() => isCustomPlay.value && totalDuration.value > 0)
+
+const displayMinute = computed(() => Math.floor(fakeMedia.currentTime / 60))
+const displaySecond = computed(() => Math.floor(fakeMedia.currentTime % 60))
+
+/** 秒 → mm:ss */
+function formatTime(seconds: number) {
+  const total = Math.max(0, Math.floor(seconds || 0))
+
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
 
 // 播放模式选项变化监听
 chrome.storage.local.get(['isCustomPlay', 'barrageSettings', 'episodeOrderDesc']).then((result) => {
@@ -171,7 +247,7 @@ chrome.storage.local.get(['isCustomPlay', 'barrageSettings', 'episodeOrderDesc']
 })
 chrome.runtime.onMessage.addListener((request) => {
   if (request.type === 'popup' && 'isCustomPlay' in request) {
-    isCustomPlay.value = request.isCustomPlay
+    setCustomPlay(request.isCustomPlay)
   }
 })
 
@@ -338,7 +414,7 @@ const specialComments = computed(() => {
 })
 
 function initDanmaku() {
-  if (!scrollBarrageEl.value || danmaku)
+  if (!scrollBarrageEl.value || !specialBarrageEl.value || danmaku)
     return
 
   let media: HTMLMediaElement | undefined | null
@@ -370,9 +446,15 @@ function initDanmaku() {
   }
 
   if (!media) {
-    media = fakeMedia
+    media = fakeMedia as unknown as HTMLMediaElement
+    // 直接赋值而非 setCustomPlay：后者会递归调用 enterCustomPlay
     isCustomPlay.value = true
   }
+
+  // 清掉上次构造失败可能残留的 handler
+  clearMediaListeners()
+  // 唯一写点，必须在构造之前：库据 media.paused 决定是否自动 seek + 开播
+  fakeMedia.paused = !isPlaying.value
 
   danmaku = new Danmaku({
     media,
@@ -382,122 +464,325 @@ function initDanmaku() {
   })
 
   specialDanmaku = new Danmaku({
-    container: specialBarrageEl.value!,
+    container: specialBarrageEl.value,
     media,
     speed: 500,
     comments: specialComments.value,
   })
 
+  loadedVId = selectedVId.value
   dialog.value?.showPopover()
   danmaku.resize()
 }
 
-function stopDanmaku() {
-  if (timer !== null) {
-    clearInterval(timer)
-    timer = null
-  }
-}
-
-function destroyDanmaku(resetTime = true, resetDuration = true) {
-  stopDanmaku()
+/** 只销毁实例，不动时间、不动播放态 —— 供 rebuild 使用 */
+function destroyInstances() {
   danmaku?.destroy()
   danmaku = null
   specialDanmaku?.destroy()
   specialDanmaku = null
+  loadedVId = ''
+}
 
-  if (resetDuration)
-    mediaDuration.value = 0
+/** 完全停止：停表 + 暂停态 + 销毁实例 + 可选复位时间 */
+function destroyDanmaku(resetTime = true) {
+  stopTimeDriver()
+  isPlaying.value = false
+  destroyInstances()
 
-  if (resetTime) {
+  if (resetTime)
     fakeMedia.currentTime = 0
-    lastTime = 0
+}
+
+/* ==================== 播放时钟 ==================== */
+
+function timeDriverTick(wall: number) {
+  rafId = requestAnimationFrame(timeDriverTick)
+
+  // 播种帧（首帧 / 后台切回后的第一帧）：只记基准，不推进时间
+  if (lastFrameWall === 0) {
+    lastFrameWall = wall
+    return
   }
+
+  let delta = (wall - lastFrameWall) / 1000
+  lastFrameWall = wall
+
+  if (delta <= 0 || !isPlaying.value || isSeeking.value)
+    return
+
+  // 兜底：长 GC / 宿主页面卡顿 / 断点调试后回来，绝不允许时间跳变
+  if (delta > MAX_FRAME_DELTA)
+    delta = MAX_FRAME_DELTA
+
+  advanceTime(fakeMedia.currentTime + delta)
+}
+
+function startTimeDriver() {
+  if (rafId !== null)
+    return
+
+  lastFrameWall = 0 // 重新播种：暂停期间的墙钟时间完全不计入
+  rafId = requestAnimationFrame(timeDriverTick)
+}
+
+function stopTimeDriver() {
+  if (rafId === null)
+    return
+
+  cancelAnimationFrame(rafId)
+  rafId = null
+  lastFrameWall = 0
+}
+
+/** 推进到指定秒，负责结尾判定 */
+function advanceTime(next: number) {
+  const total = totalDuration.value
+
+  if (total <= 0)
+    return
+
+  if (next >= total) {
+    if (loopEnabled.value) {
+      applySeek(0) // 回 0 重播，播放态不变
+      return
+    }
+
+    applySeek(total) // 停在结尾
+    applyPlayState(false) // 到结尾自动暂停
+    return
+  }
+
+  fakeMedia.currentTime = next
+}
+
+/** 一切定位的唯一入口：钳制 + 写 currentTime + 通知库重排 */
+function applySeek(seconds: number) {
+  const total = totalDuration.value
+
+  fakeMedia.currentTime = total > 0
+    ? Math.min(total, Math.max(0, seconds))
+    : Math.max(0, seconds)
+  emitMediaEvent('seeking')
+}
+
+/** 只同步库实例的播放状态（拖动期间临时用），不动 isPlaying、不动时钟 */
+function setLibraryPaused(paused: boolean) {
+  emitMediaEvent(paused ? 'pause' : 'play')
+}
+
+/** 完整播放态：用户意图 + 时钟 + 库 */
+function applyPlayState(playing: boolean) {
+  if (playing && !canControl.value)
+    return
+
+  isPlaying.value = playing
+  setLibraryPaused(!playing)
+
+  if (playing)
+    startTimeDriver()
+  else
+    stopTimeDriver()
+}
+
+/** 后台期间时间不该推进，切回可见时丢弃隐藏期间的墙钟差 */
+function handleVisibilityChange() {
+  if (document.hidden)
+    return
+
+  lastFrameWall = 0
 }
 
 /**
- * 自定义播放模式下播放弹幕
+ * 重建实例但保留时间与播放态。
+ * 库构造函数会依据 fakeMedia.paused 自行 seek 到当前 currentTime 并续播，无需手工记账。
  */
-function startDanmakuTimer(advanceImmediately = false) {
-  if (advanceImmediately)
-    fakeMedia.currentTime += 1
-
-  if (timer !== null)
-    return
-
-  timer = setInterval(() => {
-    fakeMedia.currentTime += 1
-    if (mediaDuration.value < fakeMedia.currentTime)
-      stopDanmaku()
-  }, 1000)
-}
-
-function playDanmaku() {
-  startDanmakuTimer(true)
-}
-
 function rebuildDanmakuForSettings() {
   if (!danmaku)
     return
 
-  const duration = mediaDuration.value
-  const shouldResumeTimer = timer !== null
-
-  destroyDanmaku(false, false)
-  mediaDuration.value = duration
+  destroyInstances()
   initDanmaku()
-
-  if (shouldResumeTimer)
-    startDanmakuTimer()
 }
 
 /**
  * 非自定义播放模式下弹幕准备
  */
 function handleReadyPlay() {
-  destroyDanmaku()
+  stopTimeDriver()
+  isPlaying.value = false
+
+  if (isCustomPlay.value)
+    fakeMedia.currentTime = 0 // 自定义模式：加载/切集后停在 0:00
+
+  destroyInstances()
+  initDanmaku()
+}
+
+/* ==================== 自定义播放控制 ==================== */
+
+function hasLoadedCurrent() {
+  return danmaku !== null && selectedVId.value !== '' && loadedVId === selectedVId.value
+}
+
+function handlePlayToggle() {
+  if (isPlaying.value) {
+    applyPlayState(false)
+    return
+  }
+
+  if (!canControl.value)
+    return
+
+  // 停在结尾时按播放：从头开始
+  if (fakeMedia.currentTime >= totalDuration.value)
+    applySeek(0)
+
+  if (!hasLoadedCurrent()) {
+    void prepareBarrages().then(() => applyPlayState(true))
+    return
+  }
+
+  applyPlayState(true)
+}
+
+function stepTime(delta: number) {
+  if (totalDuration.value <= 0)
+    return
+
+  const next = fakeMedia.currentTime + delta
+
+  if (next >= totalDuration.value)
+    advanceTime(next) // 复用结尾逻辑
+  else
+    applySeek(next)
+}
+
+function handleReset() {
+  destroyDanmaku() // 停表 + 暂停 + 归零
+  initDanmaku() // 用 barragesMap 缓存重建，停在 0:00 暂停
+}
+
+function handleSliderInput(value: number | number[]) {
+  if (!isSeeking.value) {
+    isSeeking.value = true
+    resumeAfterSeek = isPlaying.value
+
+    // 拖动期间临时停库，否则每帧 seek 清屏后库的 RAF 又冒出新弹幕 → 闪烁
+    if (resumeAfterSeek)
+      setLibraryPaused(true)
+  }
+
+  applySeek(Number(value))
+}
+
+function handleSliderChange(value: number | number[]) {
+  applySeek(Number(value))
+  isSeeking.value = false
+
+  if (resumeAfterSeek)
+    setLibraryPaused(false)
+
+  resumeAfterSeek = false
+}
+
+function handleMinuteChange(val?: number) {
+  applySeek((val ?? 0) * 60 + displaySecond.value)
+}
+
+function handleSecondChange(val?: number) {
+  applySeek(displayMinute.value * 60 + (val ?? 0))
+}
+
+/* ==================== 弹幕加载 ==================== */
+
+/**
+ * 拉取（或命中 barragesMap 缓存）当前剧集的弹幕，写入 barragesMap / selectedVId。
+ * 不创建实例、不改变播放状态、不触碰 currentTime。
+ * @returns 是否拿到了可用于渲染的数据
+ */
+function loadEpisodeBarrages(): Promise<boolean> {
+  const episode = selectedEpisode.value
+  const videoId = selectedVideoId.value
+  const video = videoId != null ? videoMap.value.get(videoId) : undefined
+
+  if (!episode || !video)
+    return Promise.resolve(false)
+
+  const { vid, duration } = episode // duration 是毫秒，fetcher 按毫秒分段
+
+  if (barragesMap.value.has(vid)) {
+    selectedVId.value = vid
+    return Promise.resolve(true)
+  }
+
+  playLoading.value = true
+
+  return new Promise<boolean>((resolve) => {
+    chrome.runtime.sendMessage(
+      {
+        type: MessageType.GET_BARRAGES,
+        params: { vid, duration, platform: video.platform, filter: true },
+      },
+      (response) => {
+        barragesMap.value.set(vid, response?.data ?? [])
+        selectedVId.value = vid
+        playLoading.value = false
+        resolve(true)
+      },
+    )
+  })
+}
+
+/** 确保当前剧集的实例就绪。停在当前 currentTime，不改变播放态。 */
+async function prepareBarrages() {
+  if (!await loadEpisodeBarrages())
+    return
+
+  destroyInstances()
+  initDanmaku()
+}
+
+/* ==================== 播放模式 ==================== */
+
+/** popup 与悬浮球的统一入口（含持久化） */
+function setCustomPlay(custom: boolean) {
+  if (isCustomPlay.value === custom)
+    return
+
+  isCustomPlay.value = custom
+  chrome.storage.local.set({ isCustomPlay: custom })
+
+  if (custom)
+    enterCustomPlay()
+  else
+    enterAutoPlay()
+}
+
+/** 切到自定义：停在 0:00 暂停，自动加载当前剧集弹幕 */
+function enterCustomPlay() {
+  stopTimeDriver()
+  isPlaying.value = false
+  fakeMedia.currentTime = 0
+  destroyInstances()
+  void prepareBarrages() // 命中 barragesMap 缓存时不发请求
+}
+
+/** 切回自动：交还给页面 <video>（找不到会再次自动降级回自定义） */
+function enterAutoPlay() {
+  stopTimeDriver()
+  isPlaying.value = false
+  fakeMedia.currentTime = 0
+  destroyInstances()
   initDanmaku()
 }
 
 /* ==================== 选项面板 ==================== */
 const prefix = 'crx-content'
 const isHoverBubble = ref(false)
-const playLoading = ref(false)
 const showPopup = ref(false)
 const showSettings = ref(false)
-const time = reactive({
-  minute: 0,
-  second: 0,
-})
-
 let bubbleTimeout: ReturnType<typeof setTimeout> | null = null
-
-const maxTime = computed(() => {
-  const max: Record<string, number | undefined> = {
-    minus: undefined,
-    second: 59,
-    duration: 60 * 60,
-  }
-
-  if (!selectedEpisode.value) {
-    return max
-  }
-
-  const { duration } = selectedEpisode.value
-  max.minus = Math.ceil(duration / (60 * 1000))
-  max.duration = Math.ceil(duration / 1000)
-
-  return max
-})
-
-watch(
-  () => fakeMedia.currentTime,
-  (val, oldVal) => {
-    lastTime = oldVal
-    time.minute = Math.floor(val / 60)
-    time.second = val % 60
-  },
-)
 
 function closePopup() {
   showPopup.value = false
@@ -528,7 +813,7 @@ function resetBarrageSettings() {
 }
 
 function togglePlayMode() {
-  isCustomPlay.value = !isCustomPlay.value
+  setCustomPlay(!isCustomPlay.value)
 }
 
 function handleBubbleMouseenter() {
@@ -547,240 +832,7 @@ function handleBubbleMouseleave() {
   isHoverBubble.value = false
 }
 
-function handleSliderChange(value: number | number[]) {
-  const val = value as number
-
-  if (val < lastTime) {
-    destroyDanmaku(false, false)
-    initDanmaku()
-    playDanmaku()
-  }
-}
-
-function handleMinuteChange(val?: number) {
-  time.minute = val ?? 0
-  fakeMedia.currentTime = time.minute * 60 + time.second
-}
-
-function handleSecondChange(val?: number) {
-  time.second = val ?? 0
-  fakeMedia.currentTime = time.minute * 60 + time.second
-}
-
-function playBarrages() {
-  if (!selectedEpisode.value || !selectedVideoId.value) {
-    return
-  }
-
-  const { vid, duration } = selectedEpisode.value
-  const video = videoMap.value.get(selectedVideoId.value)
-
-  if (!video) {
-    return
-  }
-
-  playLoading.value = true
-
-  chrome.runtime.sendMessage(
-    {
-      type: MessageType.GET_BARRAGES,
-      params: { vid, duration, platform: video.platform, filter: true },
-    },
-    (response) => {
-      selectedVideoId.value = video.id
-      selectedVId.value = vid
-      barragesMap.value.set(vid, response.data)
-
-      destroyDanmaku(false)
-      initDanmaku()
-      playDanmaku()
-
-      mediaDuration.value = duration
-      playLoading.value = false
-    },
-  )
-}
-
-/* ==================== 添加视频 ==================== */
-const platformOptions = [
-  { label: 'bilibili', value: Platform.BILIBILI },
-  { label: '腾讯视频', value: Platform.TENCENT },
-  { label: '爱奇艺', value: Platform.IQIYI },
-]
-
-let observer: MutationObserver | null = null
 let viewportResizeTimer: number | null = null
-
-const targetPlatform = [
-  { url: 'https://www.bilibili.com/bangumi/play/', platform: Platform.BILIBILI },
-  { url: 'https://v.qq.com/x/cover/', platform: Platform.TENCENT },
-  { url: 'https://www.iqiyi.com/', platform: Platform.IQIYI },
-  { url: 'https://www.iq.com/', platform: Platform.IQIYI },
-]
-const lastUrl = ref(location.href)
-const showAddPanel = ref(false)
-const formData = reactive({
-  name: '',
-  params: {} as Record<string, any>,
-  platform: Platform.BILIBILI,
-})
-
-const currTargetPlatform = computed(() => {
-  return targetPlatform.find(item => lastUrl.value.includes(item.url))
-})
-
-function parseIqiyiVideoParams() {
-  const getTvidByPath = () => {
-    const parseBase36ToBigInt = (value: string) => {
-      const chars = '0123456789abcdefghijklmnopqrstuvwxyz'
-      let result = 0n
-
-      for (const char of value.toLowerCase()) {
-        const idx = chars.indexOf(char)
-        if (idx < 0)
-          return null
-
-        result = result * 36n + BigInt(idx)
-      }
-
-      return result
-    }
-
-    const match = location.pathname.match(/\/[vwp]_([a-z0-9]+)\.html/i)
-    const pathId = match?.[1]
-    if (!pathId)
-      return ''
-
-    try {
-      const value = parseBase36ToBigInt(pathId)
-      if (value === null)
-        return ''
-
-      const key = 0x75706971676Cn
-      let tvid = value ^ key
-      if (tvid < 900000n) {
-        tvid = (tvid + 900000n) * 100n
-      }
-
-      return tvid.toString()
-    }
-    catch {
-      return ''
-    }
-  }
-
-  const readAttr = (...keys: string[]) => {
-    for (const key of keys) {
-      const el = document.querySelector<HTMLElement>(`[${key}]`)
-      const value = el?.getAttribute(key)
-      if (value) {
-        return value
-      }
-    }
-    return ''
-  }
-
-  const tvidFromAttr = readAttr('data-tvid', 'data-player-tvid', 'data-tv-id')
-  const vidFromAttr = readAttr('data-vid', 'data-player-vid')
-  const aidFromAttr = readAttr('data-aid', 'data-albumid', 'data-album-id')
-
-  const scriptText = Array.from(document.scripts).map(item => item.textContent || '').join('\n')
-  const html = document.documentElement.innerHTML
-  const mergedText = `${scriptText}\n${html}`
-
-  const tvidMatch
-    = mergedText.match(/"tvId"\s*:\s*"?(\d{8,})"?/i)
-      || mergedText.match(/"tvid"\s*:\s*"?(\d{8,})"?/i)
-      || mergedText.match(/\\"tvId\\"\s*:\s*"?(\d{8,})"?/i)
-      || mergedText.match(/\\"tvid\\"\s*:\s*"?(\d{8,})"?/i)
-      || mergedText.match(/(?:^|\W)tvid\s*[:=]\s*["']?(\d{8,})["']?/i)
-
-  const vidMatch
-    = mergedText.match(/"vid"\s*:\s*"([a-zA-Z0-9]+)"/)
-      || mergedText.match(/\\"vid\\"\s*:\s*\\"([a-zA-Z0-9]+)\\"/)
-
-  const aidMatch
-    = mergedText.match(/"albumId"\s*:\s*"?(\d{8,})"?/i)
-      || mergedText.match(/"aid"\s*:\s*"?(\d{8,})"?/i)
-      || mergedText.match(/\\"albumId\\"\s*:\s*"?(\d{8,})"?/i)
-      || mergedText.match(/\\"aid\\"\s*:\s*"?(\d{8,})"?/i)
-
-  const tvid = tvidFromAttr || tvidMatch?.[1] || getTvidByPath()
-  if (!tvid) {
-    return null
-  }
-
-  return {
-    tvid,
-    vid: vidFromAttr || vidMatch?.[1] || '',
-    aid: aidFromAttr || aidMatch?.[1] || '',
-  }
-}
-
-watch(showAddPanel, async (val) => {
-  if (!val || !currTargetPlatform.value) {
-    return
-  }
-
-  switch (currTargetPlatform.value.platform) {
-    case Platform.BILIBILI: {
-      const pattern = /\/(ep|ss)([^/?]*)[/?]?/
-      const match = pattern.exec(location.href)
-
-      if (match !== null) {
-        const type = match[1]
-        const id = match[2]
-        const params = type === 'ss' ? { season_id: id } : { ep_id: id }
-
-        formData.platform = Platform.BILIBILI
-        formData.params = params
-        formData.name = document.title.split(' ')[0].split('_')[0]
-      }
-      else {
-        showAddPanel.value = false
-        ElMessage({
-          type: 'error',
-          message: '未能识别出视频资源！',
-          appendTo: dialog.value,
-        })
-      }
-      break
-    }
-    case Platform.TENCENT: {
-      const paths = location.href.split('/')
-      const cid = paths[paths.length - 2]
-      const vid = paths[paths.length - 1].replace('.html', '')
-
-      formData.platform = Platform.TENCENT
-      formData.params = { cid, vid }
-      formData.name = document.title.split(' ')[0].split('_')[0]
-      break
-    }
-    case Platform.IQIYI: {
-      const params = parseIqiyiVideoParams()
-
-      if (!params) {
-        showAddPanel.value = false
-        ElMessage({
-          type: 'error',
-          message: '未能识别出爱奇艺视频参数！',
-          appendTo: dialog.value,
-        })
-        break
-      }
-
-      formData.platform = Platform.IQIYI
-      formData.params = params
-      formData.name = document.title.split(' ')[0].split('_')[0]
-      break
-    }
-  }
-})
-
-function domChange() {
-  if (window.location.href !== lastUrl.value)
-    lastUrl.value = window.location.href
-}
 
 function handleViewportResize() {
   if (viewportResizeTimer !== null)
@@ -792,11 +844,23 @@ function handleViewportResize() {
   }, 150)
 }
 
-async function saveVideo() {
+/* ==================== 添加视频 ==================== */
+const showAddPanel = ref(false)
+const formData = reactive({
+  name: '',
+  params: {} as Record<string, any>,
+  platform: Platform.BILIBILI,
+})
+
+function saveVideo() {
   chrome.runtime.sendMessage({
     type: MessageType.CREATE_VIDEO,
-    data: formData,
-  }, async (response) => {
+    data: {
+      name: formData.name,
+      platform: formData.platform,
+      params: formData.params,
+    },
+  }, (response) => {
     const appendTo = dialog.value
 
     if (response.data) {
@@ -824,12 +888,28 @@ async function saveVideo() {
   })
 }
 
-function prepareAdd() {
-  if (!currTargetPlatform.value) {
+/**
+ * popup 点「添加当前页面」时走到这里：参数解析必须发生在页面里（爱奇艺要读 DOM），
+ * 解析成功才弹确认框，失败则把原因回给 popup 显示。解析是同步的，不需要 return true。
+ */
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type !== MessageType.OPEN_ADD_PANEL)
+    return
+
+  const result = resolveManualAddFromDocument()
+
+  if (!result.ok) {
+    sendResponse({ status: 0, message: result.message })
     return
   }
+
+  formData.name = result.data.name
+  formData.platform = result.data.platform
+  formData.params = result.data.params
   showAddPanel.value = true
-}
+
+  sendResponse({ status: 1 })
+})
 
 // 同步数据（popup 添加后会带上 video，优先本地插入，避免只刷新看不到）
 chrome.runtime.onMessage.addListener((message) => {
@@ -842,17 +922,30 @@ chrome.runtime.onMessage.addListener((message) => {
     getVideos()
 })
 
+// 返回视频列表：自定义模式下清理播放态与残留的剧集信息
+watch(selectedVideoId, (id) => {
+  if (id !== undefined || !isCustomPlay.value)
+    return
+
+  stopTimeDriver()
+  isPlaying.value = false
+  destroyInstances()
+  fakeMedia.currentTime = 0
+  selectedEpisode.value = null
+  selectedVId.value = ''
+})
+
 onMounted(() => {
-  observer = new MutationObserver(domChange)
-  observer.observe(document.body, { childList: true })
   window.addEventListener('resize', handleViewportResize)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
   dialog.value?.showPopover()
 })
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
-  observer = null
   window.removeEventListener('resize', handleViewportResize)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  stopTimeDriver()
+  destroyInstances()
   if (viewportResizeTimer !== null)
     clearTimeout(viewportResizeTimer)
 })
@@ -909,7 +1002,7 @@ provide(contentInjectionKey, {
                 <template v-else>
                   <Transition name="zoom-in" mode="out-in">
                     <span v-if="showPopup">C</span>
-                    <span v-else style="transform: scale(0.9)">{{ time.minute }}:{{ time.second }}</span>
+                    <span v-else style="transform: scale(0.9)">{{ formatTime(fakeMedia.currentTime) }}</span>
                   </Transition>
                 </template>
               </Transition>
@@ -917,13 +1010,6 @@ provide(contentInjectionKey, {
           </Transition>
         </div>
         <div :class="`${prefix}__controls`">
-          <el-icon
-            :class="{ disabled: !currTargetPlatform }"
-            :title="`添加视频${!currTargetPlatform ? '，该网址不可操作' : ''}`"
-            @click="prepareAdd"
-          >
-            <Plus />
-          </el-icon>
           <el-icon title="重置弹幕" @click="destroyDanmaku()">
             <Refresh />
           </el-icon>
@@ -970,50 +1056,84 @@ provide(contentInjectionKey, {
               </Transition>
             </div>
             <div v-if="isCustomPlay" :class="`${prefix}-popup__control`">
-              <div :class="`${prefix}-popup__buttons`">
+              <div :class="`${prefix}-popup__transport`">
                 <el-button
-                  :disabled="!selectedEpisode"
-                  :loading="playLoading"
-                  type="primary"
+                  :class="{ active: loopEnabled }"
+                  :disabled="!canControl"
+                  :title="`循环播放：${loopEnabled ? '已开启' : '已关闭'}`"
                   size="small"
-                  @click="playBarrages"
+                  @click="loopEnabled = !loopEnabled"
                 >
-                  播放
+                  循环
                 </el-button>
-                <el-button type="warning" size="small" @click="destroyDanmaku()">
+                <div :class="`${prefix}-popup__transport-main`">
+                  <el-button
+                    :disabled="!canControl"
+                    :title="`快退 ${STEP_SECONDS} 秒`"
+                    size="small"
+                    @click="stepTime(-STEP_SECONDS)"
+                  >
+                    <el-icon><RefreshLeft /></el-icon>
+                  </el-button>
+                  <el-button
+                    :class="{ playing: isPlaying }"
+                    :disabled="!canControl"
+                    :loading="playLoading"
+                    :title="isPlaying ? '暂停' : '播放'"
+                    type="primary"
+                    size="small"
+                    @click="handlePlayToggle"
+                  >
+                    <el-icon v-if="!playLoading">
+                      <VideoPause v-if="isPlaying" />
+                      <VideoPlay v-else />
+                    </el-icon>
+                  </el-button>
+                  <el-button
+                    :disabled="!canControl"
+                    :title="`快进 ${STEP_SECONDS} 秒`"
+                    size="small"
+                    @click="stepTime(STEP_SECONDS)"
+                  >
+                    <el-icon><RefreshRight /></el-icon>
+                  </el-button>
+                </div>
+                <el-button :disabled="!canControl" size="small" @click="handleReset">
                   重置
                 </el-button>
               </div>
+              <!-- 拖动过程只发 update:modelValue（el-slider 不发 input），松手才发 change -->
+              <el-slider
+                :model-value="fakeMedia.currentTime"
+                :disabled="!canControl"
+                :max="totalDuration || 1"
+                :min="0"
+                :show-tooltip="false"
+                :step="1"
+                @change="handleSliderChange"
+                @update:model-value="handleSliderInput"
+              />
               <div :class="`${prefix}-popup__timer`">
-                <el-slider
-                  v-model="fakeMedia.currentTime"
-                  :show-tooltip="false"
+                <el-input-number
+                  :controls="false"
+                  :disabled="!canControl"
+                  :max="Math.floor(totalDuration / 60)"
                   :min="0"
-                  :max="maxTime.duration"
-                  :disabled="!selectedEpisode"
-                  @change="handleSliderChange"
+                  :model-value="displayMinute"
+                  size="small"
+                  @change="handleMinuteChange"
                 />
-                <div style="display: flex">
-                  <el-input-number
-                    :model-value="time.minute"
-                    :controls="false"
-                    :max="maxTime.minus"
-                    :min="0"
-                    :disabled="!selectedEpisode"
-                    size="small"
-                    @change="handleMinuteChange"
-                  />
-                  <span style="margin: 0 5px">:</span>
-                  <el-input-number
-                    :model-value="time.second"
-                    :controls="false"
-                    :max="maxTime.second"
-                    :min="0"
-                    :disabled="!selectedEpisode"
-                    size="small"
-                    @change="handleSecondChange"
-                  />
-                </div>
+                <span style="margin: 0 5px">:</span>
+                <el-input-number
+                  :controls="false"
+                  :disabled="!canControl"
+                  :max="59"
+                  :min="0"
+                  :model-value="displaySecond"
+                  size="small"
+                  @change="handleSecondChange"
+                />
+                <span :class="`${prefix}-popup__duration`">/ {{ formatTime(totalDuration) }}</span>
               </div>
             </div>
             <div v-else />
@@ -1132,21 +1252,8 @@ provide(contentInjectionKey, {
         </div>
         <el-input v-model="formData.name" />
       </div>
-      <div class="add-panel-item">
-        <div class="add-panel-item__label">
-          视频平台
-        </div>
-        <el-radio-group v-model="formData.platform">
-          <el-radio-button
-            v-for="item in platformOptions"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
-        </el-radio-group>
-      </div>
       <template #footer>
-        <div class="dialog-footer">
+        <div>
           <el-button @click="showAddPanel = false">
             取消
           </el-button>
