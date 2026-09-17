@@ -28,6 +28,42 @@ export interface BarrageParams {
   platform: Platform
 }
 
+const DEFAULT_FETCH_CONCURRENCY = 6
+const MAX_FETCH_ATTEMPTS = 3
+
+function wait(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function requestWithRetry<T>(request: () => Promise<T>, fallback: T): Promise<T> {
+  for (let attempt = 0; attempt < MAX_FETCH_ATTEMPTS; attempt++) {
+    try {
+      return await request()
+    }
+    catch {
+      if (attempt < MAX_FETCH_ATTEMPTS - 1)
+        await wait(250 * 2 ** attempt)
+    }
+  }
+
+  return fallback
+}
+
+async function fetchInBatches<T, R>(
+  items: T[],
+  worker: (item: T) => Promise<R[]>,
+  concurrency = DEFAULT_FETCH_CONCURRENCY,
+) {
+  const result: R[] = []
+
+  for (let index = 0; index < items.length; index += concurrency) {
+    const batch = items.slice(index, index + concurrency)
+    result.push(...(await Promise.all(batch.map(worker))).flat())
+  }
+
+  return result
+}
+
 const platformToRequest = {
   [Platform.BILIBILI]: getBiliBiliBarrages,
   [Platform.TENCENT]: getTencentBarrage,
@@ -94,20 +130,40 @@ export async function getIqiyiBarrage(params: BarrageParams) {
 
 export class TencentBarrageFetcher {
   private timeOffset = 30000
+  private baseUrl = 'https://dm.video.qq.com/barrage'
 
   async fetchAll(duration: number, vid: string) {
-    const timestamps = Array.from({ length: duration / 1000 / 60 * 2 }, (_, i) => i * this.timeOffset)
-    const tasks = timestamps.map(time => this.fetchOne(time, vid))
-    return (await Promise.all(tasks)).flat()
+    const segmentNames = await this.getSegmentNames(duration, vid)
+    return fetchInBatches(segmentNames, segmentName => this.fetchOne(segmentName, vid), 8)
   }
 
-  async fetchOne(timeEnd: number, vid: string) {
-    const baseUrl = `https://dm.video.qq.com/barrage/segment/${vid}/t/v1`
-    const timeBegin = timeEnd + this.timeOffset
+  private async getSegmentNames(duration: number, vid: string) {
+    const fallback = Array.from(
+      { length: Math.ceil(duration / this.timeOffset) },
+      (_, index) => `t/v1/${index * this.timeOffset}/${(index + 1) * this.timeOffset}`,
+    )
+    const response = await requestWithRetry(async () => {
+      return await instance.get(`${this.baseUrl}/base/${vid}`) as {
+        segment_index?: Record<string, { segment_name?: string, segment_start?: string }>
+      }
+    }, null)
 
-    try {
-      const url = `${baseUrl}/${timeEnd}/${timeBegin}`
-      const res: { barrage_list: any[] } = await instance.get(url)
+    if (!response?.segment_index)
+      return fallback
+
+    const segmentNames = Object.values(response.segment_index)
+      .filter(item => Number(item.segment_start) < duration)
+      .sort((previous, next) => Number(previous.segment_start) - Number(next.segment_start))
+      .map(item => item.segment_name)
+      .filter((name): name is string => Boolean(name))
+
+    return segmentNames.length ? segmentNames : fallback
+  }
+
+  async fetchOne(segmentName: string, vid: string) {
+    return requestWithRetry(async () => {
+      const url = `${this.baseUrl}/segment/${vid}/${segmentName}`
+      const res = await instance.get(url) as { barrage_list?: any[] }
       const items = res?.barrage_list || []
 
       return items.map(item => ({
@@ -117,10 +173,7 @@ export class TencentBarrageFetcher {
         content: item.content,
         mode: BarrageMode.SCROLL,
       }))
-    }
-    catch {
-      return []
-    }
+    }, [] as Barrage[])
   }
 }
 
@@ -130,14 +183,12 @@ export class BiliBiliBarrageFetcher {
   async fetchAll(duration: number, vid: string) {
     const segments = Math.ceil(duration / (1000 * 60 * 6))
 
-    const tasks = Array.from({ length: segments }, (_, i) =>
-      this.fetchOne(vid, i + 1))
-
-    return (await Promise.all(tasks)).flat()
+    const segmentIndexes = Array.from({ length: segments }, (_, index) => index + 1)
+    return fetchInBatches(segmentIndexes, segmentIndex => this.fetchOne(vid, segmentIndex))
   }
 
   async fetchOne(vid: string, segmentIndex: number) {
-    try {
+    return requestWithRetry(async () => {
       const params = { oid: vid, segment_index: segmentIndex, type: 1 }
       const buffer: ArrayBuffer = await instance.get(this.baseUrl, {
         params,
@@ -153,10 +204,7 @@ export class BiliBiliBarrageFetcher {
         weight: elem.weight ?? 1,
         mode: elem.mode ?? BarrageMode.SCROLL,
       }))
-    }
-    catch {
-      return []
-    }
+    }, [] as Barrage[])
   }
 }
 
@@ -213,25 +261,21 @@ export class IqiyiBarrageFetcher {
 
   async fetchAll(duration: number, tvid: string) {
     const segments = Math.max(1, Math.ceil(duration / this.timeOffset))
-    const tasks = Array.from({ length: segments }, (_, i) => this.fetchOne(tvid, i + 1))
-
-    return (await Promise.all(tasks)).flat()
+    const segmentIndexes = Array.from({ length: segments }, (_, index) => index + 1)
+    return fetchInBatches(segmentIndexes, segment => this.fetchOne(tvid, segment), 4)
   }
 
   async fetchOne(tvid: string, segment: number) {
-    try {
-      const suffix = tvid.slice(-4)
-      if (suffix.length < 4)
-        return []
+    const suffix = tvid.slice(-4)
+    if (suffix.length < 4)
+      return []
 
+    return requestWithRetry(async () => {
       const path = `${suffix.slice(0, 2)}/${suffix.slice(2)}/${tvid}`
       const baseUrl = `https://cmts.iqiyi.com/bullet/${path}_300_${segment}.z`
       const buffer: ArrayBuffer = await instance.get(baseUrl, { responseType: 'arraybuffer' })
       const xml = inflateDeflateBuffer(buffer)
       return parseIqiyiBulletInfos(xml)
-    }
-    catch {
-      return []
-    }
+    }, [] as Barrage[])
   }
 }

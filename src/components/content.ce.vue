@@ -7,6 +7,7 @@ import {
   Operation,
   Plus,
   Refresh,
+  Setting,
   Switch,
 } from '@element-plus/icons-vue'
 import Danmaku from 'danmaku'
@@ -16,6 +17,14 @@ import { MessageType } from '@/background'
 import { useCatchMoveMouse } from '@/hooks/useCatchMouseMove'
 import { BarrageMode, Platform } from '@/service'
 import { contentInjectionKey } from '@/symbol'
+import {
+  BASE_BARRAGE_SPEED,
+  DEFAULT_BARRAGE_SETTINGS,
+  estimateBarrageWidth,
+  filterBarragesForDisplay,
+  getBarrageLineHeight,
+  normalizeBarrageSettings,
+} from '@/utils/barrage-settings'
 import EpisodeList from './episode-list.vue'
 import VideoList from './video-list.ce.vue'
 
@@ -92,6 +101,50 @@ const scrollBarrageEl = ref<HTMLElement>()
 const specialBarrageEl = ref<HTMLElement>()
 const initialized = ref(false)
 const isCustomPlay = ref(false) // 播放模式，自动/自定义
+const barrageSettings = reactive({ ...DEFAULT_BARRAGE_SETTINGS })
+
+const currentPlatform = computed(() => {
+  if (typeof selectedVideoId.value === 'number')
+    return videoMap.value.get(selectedVideoId.value)?.platform ?? activeMenu.value
+
+  return activeMenu.value
+})
+
+const currentPlatformName = computed(() => {
+  const names: Record<Platform, string> = {
+    [Platform.BILIBILI]: '哔哩哔哩',
+    [Platform.TENCENT]: '腾讯视频',
+    [Platform.IQIYI]: '爱奇艺',
+  }
+
+  return names[currentPlatform.value]
+})
+
+// 多出的 1px 用于规避 danmaku 轨道取模时损失最末一行。
+const barrageContainerStyle = computed(() => ({
+  height: `calc(${barrageSettings.displayArea}vh + 1px)`,
+}))
+
+const barrageLineHeight = computed(() => getBarrageLineHeight(barrageSettings.fontSize))
+
+const displayAreaOptions = [
+  { label: '1/4', value: 25 },
+  { label: '1/2', value: 50 },
+  { label: '3/4', value: 75 },
+  { label: '全屏', value: 100 },
+]
+
+const densityLevel = computed(() => {
+  if (barrageSettings.density <= 30)
+    return '稀疏'
+  if (barrageSettings.density <= 50)
+    return '较少'
+  if (barrageSettings.density <= 70)
+    return '标准'
+  if (barrageSettings.density <= 90)
+    return '较多'
+  return '密集'
+})
 
 // 自定义播放模式变量
 const mediaDuration = ref(0)
@@ -106,11 +159,11 @@ const fakeMedia = reactive<HTMLMediaElement>({
 } as any)
 
 // 播放模式选项变化监听
-chrome.storage.local.get(['isCustomPlay']).then((result) => {
-  if (result.isCustomPlay !== undefined) {
+chrome.storage.local.get(['isCustomPlay', 'barrageSettings']).then((result) => {
+  if (result.isCustomPlay !== undefined)
     isCustomPlay.value = result.isCustomPlay
-  }
 
+  Object.assign(barrageSettings, normalizeBarrageSettings(result.barrageSettings))
   initialized.value = true
 })
 chrome.runtime.onMessage.addListener((request) => {
@@ -176,8 +229,7 @@ document.addEventListener('fullscreenchange', () => {
 
   dialog.value.hidePopover()
   dialog.value.showPopover()
-  danmaku?.resize()
-  specialDanmaku?.resize()
+  requestAnimationFrame(rebuildDanmakuForSettings)
 })
 
 // 修复全屏下弹幕 canvas 被视频覆盖：鼠标恢复移动时强制 resize 刷新合成层
@@ -189,89 +241,17 @@ watch(isMoving, (moving) => {
 })
 
 const barrageFilterGroup = computed(() => {
-  const group = [[], []] as [Barrage[], Barrage[]]
-  const existTimeMap = new Map<number, number>()
-  const barrages = barragesMap.value.get(selectedVId.value)?.sort((prev, next) => {
-    if (prev.offset !== next.offset) {
-      return prev.offset - next.offset
-    }
+  const stageWidth = scrollBarrageEl.value?.clientWidth || window.innerWidth + 150
+  const stageHeight = scrollBarrageEl.value?.clientHeight
+    || window.innerHeight * barrageSettings.displayArea / 100 + 1
 
-    return next.weight - prev.weight
-  })
-
-  if (!barrages) {
-    return group
-  }
-
-  // 不同平台的过滤策略不一样
-  if (activeMenu.value === Platform.BILIBILI) {
-    let lastScrollTime = 0
-    let lastSpecialTime = 0
-    const scrollInterval = 150
-    const specialInterval = 500
-
-    barrages.forEach((barrage) => {
-      const { offset, weight, content, mode } = barrage
-
-      if (weight < 2 || content.length < 2) {
-        return
-      }
-
-      if (mode !== BarrageMode.TOP && mode !== BarrageMode.BOTTOM) {
-        if (offset - lastScrollTime < scrollInterval) {
-          return
-        }
-
-        lastScrollTime = offset
-        group[0].push(barrage)
-      }
-      else {
-        if (offset - lastSpecialTime < specialInterval) {
-          return
-        }
-        lastSpecialTime = offset
-        group[1].push(barrage)
-      }
-    })
-  }
-  else if (activeMenu.value === Platform.TENCENT) {
-    barrages.forEach((barrage) => {
-      const { offset, weight, content, mode } = barrage
-      const count = existTimeMap.get(offset)
-
-      if ((count && count >= 3) || content.length <= 1 || weight < 50) {
-        return
-      }
-
-      existTimeMap.set(offset, count ? count + 1 : 1)
-      if (mode !== BarrageMode.TOP && mode !== BarrageMode.BOTTOM) {
-        group[0].push(barrage)
-      }
-      else {
-        group[1].push(barrage)
-      }
-    })
-  }
-  else {
-    barrages.forEach((barrage) => {
-      const { offset, weight, content, mode } = barrage
-      const count = existTimeMap.get(offset)
-
-      if ((count && count >= 3) || content.length <= 1 || weight < 1) {
-        return
-      }
-
-      existTimeMap.set(offset, count ? count + 1 : 1)
-      if (mode !== BarrageMode.TOP && mode !== BarrageMode.BOTTOM) {
-        group[0].push(barrage)
-      }
-      else {
-        group[1].push(barrage)
-      }
-    })
-  }
-
-  return group
+  return filterBarragesForDisplay(
+    barragesMap.value.get(selectedVId.value),
+    currentPlatform.value,
+    barrageSettings,
+    stageWidth,
+    stageHeight,
+  )
 })
 
 // 滚动弹幕
@@ -281,8 +261,9 @@ const scrollComments = computed(() => {
     render: () => {
       const { content } = item
       const itemEl = document.createElement('div')
+      const contentEl = document.createElement('div')
 
-      itemEl.innerHTML = content.replace(/\[.*?\]/g, (match) => {
+      contentEl.innerHTML = content.replace(/\[.*?\]/g, (match) => {
         if (!match)
           return ''
 
@@ -293,12 +274,25 @@ const scrollComments = computed(() => {
           : match
       })
 
-      itemEl.style.display = 'flex'
-      itemEl.style.alignItems = 'center'
-      itemEl.style.fontSize = '16px'
-      itemEl.style.color = '#fff'
-      itemEl.style.opacity = '0.85'
-      itemEl.style.textShadow = '-1px -1px rgba(0, 0, 0, 85%), 1px -1px rgba(0, 0, 0, 85%), -1px 1px rgba(0, 0, 0, 85%), 1px 1px rgba(0, 0, 0, 85%)'
+      // 外层仅向 danmaku 提供宽度，保持 0 高度，纵向轨道由内部元素控制。
+      itemEl.style.position = 'relative'
+      itemEl.style.width = `${estimateBarrageWidth(content, barrageSettings.fontSize)}px`
+      itemEl.style.height = '0'
+      itemEl.style.overflow = 'visible'
+
+      contentEl.style.position = 'absolute'
+      contentEl.style.top = `${item.lane * barrageLineHeight.value}px`
+      contentEl.style.left = '0'
+      contentEl.style.display = 'flex'
+      contentEl.style.alignItems = 'center'
+      contentEl.style.width = 'max-content'
+      contentEl.style.height = `${barrageLineHeight.value}px`
+      contentEl.style.lineHeight = `${barrageLineHeight.value}px`
+      contentEl.style.fontSize = `${barrageSettings.fontSize}px`
+      contentEl.style.color = '#fff'
+      contentEl.style.opacity = '0.85'
+      contentEl.style.textShadow = '-1px -1px rgba(0, 0, 0, 85%), 1px -1px rgba(0, 0, 0, 85%), -1px 1px rgba(0, 0, 0, 85%), 1px 1px rgba(0, 0, 0, 85%)'
+      itemEl.appendChild(contentEl)
       return itemEl
     },
   }))
@@ -329,7 +323,8 @@ const specialComments = computed(() => {
 
         itemEl.style.display = 'flex'
         itemEl.style.alignItems = 'center'
-        itemEl.style.fontSize = '16px'
+        itemEl.style.fontSize = `${barrageSettings.fontSize}px`
+        itemEl.style.lineHeight = `${barrageLineHeight.value}px`
         itemEl.style.color = 'orange'
         itemEl.style.opacity = '0.85'
         itemEl.style.textShadow = '-1px -1px rgba(0, 0, 0, 85%), 1px -1px rgba(0, 0, 0, 85%), -1px 1px rgba(0, 0, 0, 85%), 1px 1px rgba(0, 0, 0, 85%)'
@@ -378,7 +373,8 @@ function initDanmaku() {
 
   danmaku = new Danmaku({
     media,
-    container: scrollBarrageEl.value!,
+    container: scrollBarrageEl.value,
+    speed: BASE_BARRAGE_SPEED * barrageSettings.speed,
     comments: scrollComments.value,
   })
 
@@ -394,19 +390,21 @@ function initDanmaku() {
 }
 
 function stopDanmaku() {
-  if (timer) {
+  if (timer !== null) {
     clearInterval(timer)
     timer = null
   }
 }
 
-function destroyDanmaku(resetTime = true) {
+function destroyDanmaku(resetTime = true, resetDuration = true) {
   stopDanmaku()
   danmaku?.destroy()
   danmaku = null
   specialDanmaku?.destroy()
   specialDanmaku = null
-  mediaDuration.value = 0
+
+  if (resetDuration)
+    mediaDuration.value = 0
 
   if (resetTime) {
     fakeMedia.currentTime = 0
@@ -417,17 +415,37 @@ function destroyDanmaku(resetTime = true) {
 /**
  * 自定义播放模式下播放弹幕
  */
-function playDanmaku() {
-  fakeMedia.currentTime += 1
+function startDanmakuTimer(advanceImmediately = false) {
+  if (advanceImmediately)
+    fakeMedia.currentTime += 1
 
-  if (!timer) {
-    timer = setInterval(() => {
-      fakeMedia.currentTime += 1
-      if (mediaDuration.value < fakeMedia.currentTime) {
-        stopDanmaku()
-      }
-    }, 1000)
-  }
+  if (timer !== null)
+    return
+
+  timer = setInterval(() => {
+    fakeMedia.currentTime += 1
+    if (mediaDuration.value < fakeMedia.currentTime)
+      stopDanmaku()
+  }, 1000)
+}
+
+function playDanmaku() {
+  startDanmakuTimer(true)
+}
+
+function rebuildDanmakuForSettings() {
+  if (!danmaku)
+    return
+
+  const duration = mediaDuration.value
+  const shouldResumeTimer = timer !== null
+
+  destroyDanmaku(false, false)
+  mediaDuration.value = duration
+  initDanmaku()
+
+  if (shouldResumeTimer)
+    startDanmakuTimer()
 }
 
 /**
@@ -443,6 +461,7 @@ const prefix = 'crx-content'
 const isHoverBubble = ref(false)
 const playLoading = ref(false)
 const showPopup = ref(false)
+const showSettings = ref(false)
 const time = reactive({
   minute: 0,
   second: 0,
@@ -481,6 +500,30 @@ function closePopup() {
   showPopup.value = false
 }
 
+function togglePlaylistPanel() {
+  showPopup.value = !showPopup.value
+  if (showPopup.value)
+    showSettings.value = false
+}
+
+function toggleSettingsPanel() {
+  showSettings.value = !showSettings.value
+  if (showSettings.value)
+    showPopup.value = false
+}
+
+function handleBarrageSettingChange() {
+  const normalized = normalizeBarrageSettings(barrageSettings)
+  Object.assign(barrageSettings, normalized)
+  chrome.storage.local.set({ barrageSettings: { ...normalized } })
+  nextTick(rebuildDanmakuForSettings)
+}
+
+function resetBarrageSettings() {
+  Object.assign(barrageSettings, DEFAULT_BARRAGE_SETTINGS)
+  handleBarrageSettingChange()
+}
+
 function togglePlayMode() {
   isCustomPlay.value = !isCustomPlay.value
 }
@@ -505,7 +548,7 @@ function handleSliderChange(value: number | number[]) {
   const val = value as number
 
   if (val < lastTime) {
-    destroyDanmaku(false)
+    destroyDanmaku(false, false)
     initDanmaku()
     playDanmaku()
   }
@@ -563,6 +606,7 @@ const platformOptions = [
 ]
 
 let observer: MutationObserver | null = null
+let viewportResizeTimer: number | null = null
 
 const targetPlatform = [
   { url: 'https://www.bilibili.com/bangumi/play/', platform: Platform.BILIBILI },
@@ -731,9 +775,18 @@ watch(showAddPanel, async (val) => {
 })
 
 function domChange() {
-  if (window.location.href !== lastUrl.value) {
+  if (window.location.href !== lastUrl.value)
     lastUrl.value = window.location.href
-  }
+}
+
+function handleViewportResize() {
+  if (viewportResizeTimer !== null)
+    clearTimeout(viewportResizeTimer)
+
+  viewportResizeTimer = window.setTimeout(() => {
+    viewportResizeTimer = null
+    rebuildDanmakuForSettings()
+  }, 150)
 }
 
 async function saveVideo() {
@@ -789,12 +842,16 @@ chrome.runtime.onMessage.addListener((message) => {
 onMounted(() => {
   observer = new MutationObserver(domChange)
   observer.observe(document.body, { childList: true })
+  window.addEventListener('resize', handleViewportResize)
   dialog.value?.showPopover()
 })
 
 onBeforeUnmount(() => {
   observer?.disconnect()
   observer = null
+  window.removeEventListener('resize', handleViewportResize)
+  if (viewportResizeTimer !== null)
+    clearTimeout(viewportResizeTimer)
 })
 
 provide(contentInjectionKey, {
@@ -825,8 +882,8 @@ provide(contentInjectionKey, {
         :class="[
           prefix,
           {
-            'active': showPopup,
-            'idle-fullscreen': !isMoving && isFullscreen && !showPopup,
+            'active': showPopup || showSettings,
+            'idle-fullscreen': !isMoving && isFullscreen && !showPopup && !showSettings,
           },
         ]"
       >
@@ -867,9 +924,16 @@ provide(contentInjectionKey, {
             <Refresh />
           </el-icon>
           <el-icon
+            :class="{ active: showSettings }"
+            title="弹幕设置"
+            @click="toggleSettingsPanel"
+          >
+            <Setting />
+          </el-icon>
+          <el-icon
             :class="{ active: showPopup }"
             title="播放列表"
-            @click="showPopup = !showPopup"
+            @click="togglePlaylistPanel"
           >
             <Operation />
           </el-icon>
@@ -951,9 +1015,106 @@ provide(contentInjectionKey, {
             <div v-else />
           </div>
         </Transition>
+        <Transition name="move-in-right">
+          <div v-if="showSettings" :class="`${prefix}-settings`">
+            <div :class="`${prefix}-settings__header`">
+              <div :class="`${prefix}-settings__title`">
+                <el-icon size="16">
+                  <Setting />
+                </el-icon>
+                <span>弹幕设置</span>
+              </div>
+              <el-icon class="close-icon" @click="showSettings = false">
+                <CloseBold />
+              </el-icon>
+            </div>
+            <div :class="`${prefix}-settings__body`">
+              <div :class="`${prefix}-settings__item`">
+                <div :class="`${prefix}-settings__label`">
+                  <span>播放速度</span>
+                  <strong>{{ barrageSettings.speed.toFixed(1) }}x</strong>
+                </div>
+                <el-slider
+                  v-model="barrageSettings.speed"
+                  :min="0.5"
+                  :max="2"
+                  :step="0.1"
+                  :show-tooltip="false"
+                  @change="handleBarrageSettingChange"
+                />
+                <div :class="`${prefix}-settings__scale`">
+                  <span>慢</span>
+                  <span>快</span>
+                </div>
+              </div>
+              <div :class="`${prefix}-settings__item`">
+                <div :class="`${prefix}-settings__label`">
+                  <span>字体大小</span>
+                  <strong>{{ barrageSettings.fontSize }}px</strong>
+                </div>
+                <el-slider
+                  v-model="barrageSettings.fontSize"
+                  :min="12"
+                  :max="32"
+                  :step="2"
+                  :show-tooltip="false"
+                  show-stops
+                  @change="handleBarrageSettingChange"
+                />
+                <div :class="`${prefix}-settings__scale`">
+                  <span>小</span>
+                  <span>大</span>
+                </div>
+              </div>
+              <div :class="`${prefix}-settings__item`">
+                <div :class="`${prefix}-settings__label`">
+                  <span>显示区域</span>
+                  <strong>{{ barrageSettings.displayArea }}%</strong>
+                </div>
+                <el-segmented
+                  v-model="barrageSettings.displayArea"
+                  :options="displayAreaOptions"
+                  @change="handleBarrageSettingChange"
+                />
+              </div>
+              <div :class="`${prefix}-settings__item`">
+                <div :class="`${prefix}-settings__label`">
+                  <span>弹幕密度</span>
+                  <strong>{{ densityLevel }} · {{ barrageSettings.density }}%</strong>
+                </div>
+                <el-slider
+                  v-model="barrageSettings.density"
+                  :min="20"
+                  :max="100"
+                  :step="10"
+                  :show-tooltip="false"
+                  show-stops
+                  @change="handleBarrageSettingChange"
+                />
+                <div :class="`${prefix}-settings__scale`">
+                  <span>稀疏</span>
+                  <span>密集</span>
+                </div>
+              </div>
+              <div :class="`${prefix}-settings__hint`">
+                <template v-if="barrageSettings.density >= 100">
+                  100% 密度已关闭{{ currentPlatformName }}的平台数量限流，仅保留轨道防重叠。
+                </template>
+                <template v-else>
+                  当前按{{ currentPlatformName }}的数据量、密度和显示区域逐步增加每秒弹幕数量。
+                </template>
+              </div>
+            </div>
+            <div :class="`${prefix}-settings__footer`">
+              <el-button size="small" @click="resetBarrageSettings">
+                恢复默认
+              </el-button>
+            </div>
+          </div>
+        </Transition>
       </div>
     </Transition>
-    <div ref="scrollBarrageEl" class="crx-barrage-scroll" />
+    <div ref="scrollBarrageEl" class="crx-barrage-scroll" :style="barrageContainerStyle" />
     <div ref="specialBarrageEl" class="crx-barrage-custom" />
     <el-dialog
       v-model="showAddPanel"

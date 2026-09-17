@@ -26,13 +26,13 @@
   @include box-modifier;
   position: fixed;
   top: 18%;
-  right: -72px;
+  right: -92px;
   z-index: 99999;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  width: 110px;
+  width: 130px;
   height: 36px;
   padding: 0 5px;
   background-color: #fff;
@@ -175,6 +175,113 @@
       padding: 10px;
     }
   }
+
+  &-settings {
+    @include box-modifier;
+    position: absolute;
+    right: 15px;
+    top: 51px;
+    width: 330px;
+    color: #1f2329;
+    background-color: rgba(255, 255, 255, 98%);
+    border-radius: 12px;
+    overflow: hidden;
+
+    &__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 40px;
+      padding: 0 14px;
+      border-bottom: 1px solid rgba(0, 0, 0, 10%);
+    }
+
+    &__title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    &__body {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 18px 20px 14px;
+    }
+
+    &__item {
+      .el-slider {
+        --el-slider-main-bg-color: #6978ff;
+        --el-slider-runway-bg-color: #e7e9f7;
+        --el-slider-stop-bg-color: rgba(105, 120, 255, 35%);
+        height: 20px;
+      }
+
+      .el-slider__button {
+        width: 14px;
+        height: 14px;
+        border-color: #6978ff;
+      }
+
+      .el-segmented {
+        --el-segmented-item-selected-bg-color: #6978ff;
+        --el-segmented-item-selected-color: #fff;
+        width: 100%;
+      }
+    }
+
+    &__label,
+    &__scale {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    &__label {
+      margin-bottom: 4px;
+      font-size: 13px;
+
+      strong {
+        color: #6978ff;
+        font-size: 12px;
+        font-weight: 600;
+      }
+    }
+
+    &__scale {
+      margin-top: -2px;
+      color: rgba(0, 0, 0, 45%);
+      font-size: 11px;
+    }
+
+    &__hint {
+      padding: 9px 10px;
+      border-radius: 7px;
+      color: rgba(0, 0, 0, 55%);
+      background-color: rgba(105, 120, 255, 7%);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    &__footer {
+      display: flex;
+      justify-content: flex-end;
+      padding: 10px 14px;
+      border-top: 1px solid rgba(0, 0, 0, 8%);
+    }
+
+    .close-icon {
+      color: rgba(0, 0, 0, 50%);
+      cursor: pointer;
+      transition: color 300ms;
+
+      &:hover {
+        color: #000;
+      }
+    }
+  }
 }
 
 .crx-float-bubble {
@@ -221,7 +328,7 @@
   top: 0;
   left: 0;
   width: calc(100vw + 150px);
-  height: calc(100vh / 4);
+  height: calc(25vh + 1px);
   line-height: 30px;
   pointer-events: none;
   background-color: transparent;
