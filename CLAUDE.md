@@ -41,7 +41,7 @@ Service Worker（`background.ts`）是消息路由器。它根据 `MessageType` 
 ### 数据层
 
 - **IndexedDB**（`barrage_database`，store `videos`）：持久化用户添加的视频条目（名称、平台、平台相关参数如 `cid`/`vid`/`tvid`）。通过 `getDB()` 惰性打开。
-- **chrome.storage.local**：持久化两项设置 — `floatBubbleOpened`（悬浮球显示/隐藏）和 `isCustomPlay`（自动/自定义播放模式）。设置变更通过 `chrome.tabs.sendMessage` 在 content ↔ popup 之间同步。
+- **chrome.storage.local**：持久化设置项。`floatBubbleOpened`（悬浮球显示/隐藏）由 popup 写入、content 读取，变更通过 `chrome.tabs.sendMessage`（`type: 'popup'`）在 content ↔ popup 之间同步；其余四项只有 content 读写，不同步 —— `isCustomPlay`（自动/自定义播放模式）、`barrageSettings`（弹幕速度/字号/区域/密度）、`episodeOrderDesc`（剧集正序/倒序）、`floatBubblePosition`（悬浮条停靠位置 `{ side: 'left' | 'right', top: number }`，top 为视口 px）。
 - **弹幕数据**：按需从平台 API 获取，缓存在内存中的 `barragesMap`（`Map<string, Barrage[]>`，以视频 `vid` 为键）。不持久化。
 
 ### 平台支持
@@ -76,6 +76,27 @@ Service Worker（`background.ts`）是消息路由器。它根据 `MessageType` 
 - `fakeMedia.paused` **只有一个写点**：`initDanmaku()` 构造实例之前设为 `!isPlaying.value`。库构造函数据此决定是否自动 `seek()+play()`，所以重建实例时能自动续播，不需要额外的状态记录。其余地方改播放态一律走 `setLibraryPaused()` 发事件。
 - 时间推进用 `requestAnimationFrame` + `performance.now()` 的真实 delta（`timeDriverTick`），不是 `setInterval` 累加。暂停时重新播种 `lastFrameWall` 因而不累积漂移；`visibilitychange` 与 `MAX_FRAME_DELTA` 共同防止后台/长卡顿后的时间跳变。
 - `applySeek()` 是所有定位操作的唯一入口（钳制 + 写 `currentTime` + 派发 `seeking`）。
+
+### 悬浮条拖拽与吸附
+
+悬浮条（`.crx-content`）**整条**都是拖拽把手（含图标按钮和彩色气泡），松手后横向**必须**吸附到左/右边缘（取较近的一侧），纵向保留拖放高度。拖动逻辑在 `src/hooks/useDraggableRail.ts`。几个不显然的约束：
+
+- **拖拽监听挂 window，不给悬浮条 `setPointerCapture`**。指针捕获会把后续指针事件的目标重定向到捕获元素，`click` 的事件目标因此变成悬浮条本身，而图标按钮是它的**后代**（不是兄弟节点），就再也收不到点击了。代价是要自己收尾：`pointerup` / `pointercancel` / window `blur` 三条路径都收敛到 `endDrag()`，并在 `onBeforeUnmount` 里调 `stop()`。
+- 拖拽结束那一次 `click` 由捕获阶段的 `@click.capture` 吞掉（`onClickCapture`）。必须在捕获阶段：只有在悬浮条上先拦下来，才能挡住下面图标按钮和气泡各自的点击处理。该标志每次 `pointerdown` 重置，只吞一次。
+- 面板（`-popup` / `-settings`）是悬浮条的**子元素**，所以在悬浮条上按下时要跳过命中面板的情况，否则在剧集列表里滚动、拖滑块都会被当成拖拽。这就是 `useDraggableRail` 的 `ignore` 选项。
+- `touch-action: none` **不能**挂在 `.crx-content` 上：`touch-action` 由祖先链取交集，祖先禁掉了后代无法重新打开，会让面板里的列表没法触摸滚动。只能加在气泡和图标区这种不滚动的区域上。光标不做特殊处理，整条保持默认（气泡和图标各自原有的 `pointer` 不变）。
+
+- **尺寸必须显式声明 `box-sizing: border-box`，并让停靠公式从 `--crx-rail-w` / `--crx-rail-h` 派生**。shadow tree 里没有全局 `box-sizing` 重置（`common.scss` 只重置了 `html/body` 的 margin），默认 content-box 会让 `width: 130px` 的实际占位变成 130 + padding 10 + border 2 = 142px；而停靠公式 `calc(100% - var(--crx-rail-w))` 拿的是内容宽，悬浮条右边缘就会跑到视口右边 12px 之外。有竖直滚动条的页面上，右侧的「播放列表」图标正好被滚动条盖住一截。（顺带记一条容易误判的：`position: fixed` 元素的 `left: 100%` 与 `right: 0` 解析到的是同一个宽度，都**不含**经典滚动条，所以这个锅不在 `left`/`right` 上。）
+- 定位只用 `left` 一个属性表达：`--crx-rail-dock`（完全展开时的 left）+ `--crx-rail-dir × --crx-rail-offset`（收起时朝停靠边外移的距离），两个方向共用。这样拖拽的内联 `left: <px>` 与吸附后的 `calc()` 同为 `<length>`，吸附过程能走 `left` 的 transition（`right` 与 `auto` 之间无法插值）。改回 `left`/`right` 双份会丢掉吸附动画。
+- `--crx-rail-offset` **只在** `:hover` / `.active` / `.idle-fullscreen` 里赋值，在基类里消费；不要把它写进 `.is-left`/`.is-right`，那几条规则同为 (0,2,0) 特指度，只能靠源码顺序决胜。
+- **抓取偏移必须在越过 5px 阈值时才量**：悬浮条平时处于收起态，按下瞬间多半还在 `:hover` 的 left 过渡中途，提前量到的是旧坐标，会导致起步横向跳变。
+- 拖拽中**横向不做钳制**：悬浮条收起时有一截在视口外，硬把它拽回屏幕内会让起步跳一整段收起距离；而横向位置不持久化（只存左/右停靠方向），松手必定吸附到边缘，所以中途甩出视口无所谓。纵向要钳制，因为高度会被持久化。
+- `pointerdown` 要 `preventDefault()`（否则拖拽会选中宿主页面文字）。`click` 不是 compatibility mouse event，不会被 `preventDefault` 一并取消，所以气泡和图标按钮的 `@click` 都照常有效。
+- 视口尺寸取 `rail.ownerDocument.documentElement.clientWidth/clientHeight`，不能用 `window.innerWidth/innerHeight`：`innerWidth` 含滚动条，且全屏时 `#crx-root` 会被搬进 iframe。
+- 纵向不越界由 CSS 的 `top: clamp(0px, var(--crx-rail-top, 18%), 100% - 36px)` 兜底，不需要在 load/resize/全屏三处写 JS 钳制。
+- 左停靠时内部布局也要镜像（`is-left` 下 `flex-direction: row-reverse`，图标容器再反向一次抵消）：镜像后气泡才紧贴停靠边，收起时探出来的是彩色气泡而不是一截图标，两侧收起后的观感一致。
+- 面板是悬浮条的绝对定位子元素，因此左停靠时要镜像（`is-left`），位置偏低时要翻到悬浮条上方（`is-panel-above`，判定见 `refreshPanelAbove`）；否则固定 500px 高的播放列表会掉出视口底部。
+- `idle-fullscreen` 的条件必须排除 `isDraggingBubble`：`preventDefault()` 抑制了按住期间的 compatibility mouse events，全屏下 `isMoving` 收不到信号会在 3s 后衰减，悬浮条会当场消失。
 
 ### Web Components（`.ce.vue` 文件）
 

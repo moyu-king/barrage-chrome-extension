@@ -24,34 +24,86 @@
 .crx-content {
   @include box-modifier;
   position: fixed;
-  top: 18%;
-  right: -92px;
+  // 尺寸必须显式声明 border-box 并从这里派生：shadow tree 里没有全局 box-sizing 重置
+  // （见 common.scss），默认的 content-box 会让 width 只是内容宽，实际占位还要加上
+  // padding 和 border —— 停靠公式拿它算 left 就会把悬浮条推到视口外，
+  // 有竖直滚动条时右侧图标正好被滚动条盖住一截。
+  box-sizing: border-box;
+  --crx-rail-w: 142px; // 与原 content-box 的 width:130 + padding:0 5px + border:1px 等宽
+  --crx-rail-h: 38px; // 同上：原 height:36 + border:1px
+  // 两个停靠方向都只用 left 表达：拖拽时是内联 left: <px>，吸附后是这里的 calc()，
+  // 两边同为 <length> 才能让吸附过程走 transition（right 与 auto 之间无法插值）。
+  --crx-rail-dock: calc(100% - var(--crx-rail-w)); // 完全展开时悬浮条的 left
+  --crx-rail-dir: 1; // 右停靠：向左为负、向右为正，收起即朝停靠边外移
+  --crx-rail-peek: 92px; // 收起时移出视口的距离，留下 50px 可见
+  --crx-rail-peek-idle: 72px; // 全屏闲置时收得更深
+  --crx-rail-offset: var(--crx-rail-peek);
+  top: clamp(0px, var(--crx-rail-top, 18%), calc(100% - var(--crx-rail-h)));
+  left: calc(var(--crx-rail-dock) + var(--crx-rail-dir) * var(--crx-rail-offset));
   z-index: 99999;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  width: 130px;
-  height: 36px;
+  width: var(--crx-rail-w);
+  height: var(--crx-rail-h);
   padding: 0 5px;
   background-color: #fff;
   border-radius: 16px 0 0 16px;
   user-select: none;
-  transition: right 500ms ease;
   color: #fff;
   opacity: 70%;
-  transition: opacity 300ms ease, right 300ms ease;
+  transition: opacity 300ms ease, left 300ms ease, top 300ms ease;
 
+  &.is-left {
+    --crx-rail-dock: 0px;
+    --crx-rail-dir: -1;
+    border-radius: 0 16px 16px 0;
+
+    // 内部布局也镜像：气泡挪到贴着停靠边的一侧（悬浮条右端），收起时才和右停靠
+    // 一样「探出彩色气泡」而不是探出一截图标 —— 气泡是拖拽把手，探出来才好直接抓。
+    // 图标容器反向一次抵消掉，视觉顺序不变。
+    flex-direction: row-reverse;
+
+    .crx-content__controls {
+      flex-direction: row-reverse;
+    }
+
+    // 面板镜像到左侧展开
+    .crx-content-popup,
+    .crx-content-settings {
+      right: auto;
+      left: 15px;
+    }
+  }
+
+  // 只在下面这些状态里改 --crx-rail-offset、在基类里消费，避免与 .is-left
+  // 抢同一条 left 声明（两条规则同为 0,2,0 特指度，只能靠源码顺序决胜）。
   &.active,
   &:hover {
-    right: 0;
+    --crx-rail-offset: 0px;
     opacity: 100%;
   }
 
   &.idle-fullscreen {
-    right: -72px;
+    --crx-rail-offset: var(--crx-rail-peek-idle);
     opacity: 0;
     pointer-events: none;
+  }
+
+  // 拖拽中由内联 left/top 接管定位，过渡必须关掉
+  &.is-dragging {
+    transition: none;
+  }
+
+  // 悬浮条位置偏低时面板翻到上方，否则固定 500px 高的播放列表会掉出视口底部。
+  // 这里的 100% 解析为悬浮条自身高度（36px），故等价于 top: 51px 的镜像。
+  &.is-panel-above {
+    .crx-content-popup,
+    .crx-content-settings {
+      top: auto;
+      bottom: calc(100% + 15px);
+    }
   }
 
   &__controls {
@@ -59,6 +111,9 @@
     align-items: center;
     justify-content: space-between;
     flex: 1;
+    // 触摸拖拽时不让滚动抢走指针。只能加在这种不滚动的区域上：
+    // touch-action 由祖先链取交集，加在 .crx-content 上会让面板里的列表没法滚。
+    touch-action: none;
 
     .el-icon {
       color: rgba(0, 0, 0, 75%);
@@ -396,6 +451,7 @@
   font-weight: 700;
   letter-spacing: -0.5px; // 自定义模式下要放下 5 个字符的 mm:ss
   cursor: pointer;
+  touch-action: none; // 触摸拖拽时不让滚动抢走指针
   overflow: hidden;
 
   &::before {

@@ -45,6 +45,6 @@
   animation: fadeInLeft var(--animation-duration, 300ms) forwards;
 }
 
-.move-in-left-enter-active {
-  animation: fadeInLeft var(--animation-duration, 300ms) forwards;
+.move-in-left-leave-active {
+  animation: fadeInLeft var(--animation-duration, 300ms) reverse;
 }

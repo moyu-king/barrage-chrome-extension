@@ -18,6 +18,7 @@ import { ElMessage, ElNotification } from 'element-plus'
 import elementPlusVars from 'element-plus/theme-chalk/el-var.css?raw'
 import { MessageType } from '@/background'
 import { useCatchMoveMouse } from '@/hooks/useCatchMouseMove'
+import { useDraggableRail } from '@/hooks/useDraggableRail'
 import { BarrageMode, Platform, resolveManualAddFromDocument } from '@/service'
 import { contentInjectionKey } from '@/symbol'
 import {
@@ -236,11 +237,20 @@ function formatTime(seconds: number) {
 }
 
 // 播放模式选项变化监听
-chrome.storage.local.get(['isCustomPlay', 'barrageSettings', 'episodeOrderDesc']).then((result) => {
+chrome.storage.local.get([
+  'isCustomPlay',
+  'barrageSettings',
+  'episodeOrderDesc',
+  'floatBubblePosition',
+]).then((result) => {
   if (result.isCustomPlay !== undefined)
     isCustomPlay.value = result.isCustomPlay
 
   isEpisodeOrderDesc.value = result.episodeOrderDesc === true
+
+  // 悬浮条停靠位置。必须在这里读：下面的 initialized 才是悬浮条的挂载开关，
+  // 晚读会让它先画在默认位置再动画飞过去。
+  restoreBubblePosition(result.floatBubblePosition)
 
   Object.assign(barrageSettings, normalizeBarrageSettings(result.barrageSettings))
   initialized.value = true
@@ -308,7 +318,11 @@ document.addEventListener('fullscreenchange', () => {
 
   dialog.value.hidePopover()
   dialog.value.showPopover()
-  requestAnimationFrame(rebuildDanmakuForSettings)
+  requestAnimationFrame(() => {
+    rebuildDanmakuForSettings()
+    // 悬浮条刚被搬进/搬出 iframe，视口尺寸要等一次重排后才准
+    refreshPanelAbove()
+  })
 })
 
 // 修复全屏下弹幕 canvas 被视频覆盖：鼠标恢复移动时强制 resize 刷新合成层
@@ -790,14 +804,87 @@ function closePopup() {
 
 function togglePlaylistPanel() {
   showPopup.value = !showPopup.value
-  if (showPopup.value)
+  if (showPopup.value) {
     showSettings.value = false
+    refreshPanelAbove()
+  }
 }
 
 function toggleSettingsPanel() {
   showSettings.value = !showSettings.value
-  if (showSettings.value)
+  if (showSettings.value) {
     showPopup.value = false
+    refreshPanelAbove()
+  }
+}
+
+/* ==================== 悬浮条拖拽 ==================== */
+const PANEL_OFFSET = 51 // 面板与悬浮条的间距，与 content.ce.scss 里的 top: 51px 对齐
+const PANEL_HEIGHT = 500 // 播放列表固定 500px，设置面板内容撑开约 480px，取大者判定
+const PANEL_MARGIN = 8
+
+const railEl = ref<HTMLElement | null>(null)
+const bubbleSide = ref<'left' | 'right'>('right')
+const bubbleTop = ref<number | null>(null) // px；null 表示沿用 CSS 里的默认 18%
+const panelAbove = ref(false)
+
+const {
+  isDragging: isDraggingBubble,
+  dragPos,
+  onPointerDown: handleRailPointerDown,
+  onClickCapture: handleRailClickCapture,
+  stop: stopRailDrag,
+} = useDraggableRail({
+  rail: railEl,
+  // 面板挂在悬浮条底下，在面板里按下是滚列表/拖滑块，不能当成拖拽
+  ignore: `.${prefix}-popup, .${prefix}-settings`,
+  // 松手吸附：横向取左/右较近的一侧，纵向保留拖放高度
+  onDrop: ({ x, y }) => {
+    const railWidth = railEl.value?.offsetWidth ?? 130
+    const viewWidth = railEl.value?.ownerDocument.documentElement.clientWidth
+      ?? window.innerWidth
+
+    bubbleSide.value = x + railWidth / 2 < viewWidth / 2 ? 'left' : 'right'
+    bubbleTop.value = y
+    chrome.storage.local.set({ floatBubblePosition: { side: bubbleSide.value, top: y } })
+    refreshPanelAbove()
+  },
+})
+
+const railStyle = computed(() => {
+  if (isDraggingBubble.value)
+    return { left: `${dragPos.x}px`, top: `${dragPos.y}px` }
+
+  return bubbleTop.value === null ? {} : { '--crx-rail-top': `${bubbleTop.value}px` }
+})
+
+/** 停靠方向决定面板朝哪边展开，也决定它从哪一侧飞入 */
+const panelTransition = computed(() =>
+  bubbleSide.value === 'left' ? 'move-in-left' : 'move-in-right',
+)
+
+/** 恢复上次的停靠位置，数据来自 chrome.storage.local，校验一次形状 */
+function restoreBubblePosition(value?: { side?: unknown, top?: unknown } | null) {
+  if (value?.side !== 'left' && value?.side !== 'right')
+    return
+
+  if (typeof value.top !== 'number' || !Number.isFinite(value.top))
+    return
+
+  bubbleSide.value = value.side
+  bubbleTop.value = value.top
+}
+
+/** 悬浮条偏低时把面板翻到上方，否则 500px 高的播放列表会掉出视口底部 */
+function refreshPanelAbove() {
+  const rail = railEl.value
+  if (!rail)
+    return
+
+  const { clientHeight } = rail.ownerDocument.documentElement
+  const bottom = rail.getBoundingClientRect().bottom
+
+  panelAbove.value = bottom + PANEL_OFFSET + PANEL_HEIGHT + PANEL_MARGIN > clientHeight
 }
 
 function handleBarrageSettingChange() {
@@ -817,6 +904,9 @@ function togglePlayMode() {
 }
 
 function handleBubbleMouseenter() {
+  if (isDraggingBubble.value)
+    return
+
   bubbleTimeout = setTimeout(() => {
     isHoverBubble.value = true
     bubbleTimeout = null
@@ -832,6 +922,12 @@ function handleBubbleMouseleave() {
   isHoverBubble.value = false
 }
 
+// 按下时可能还挂着进入气泡时排的 300ms 计时器，拖拽一开始就把它清掉
+watch(isDraggingBubble, (dragging) => {
+  if (dragging)
+    handleBubbleMouseleave()
+})
+
 let viewportResizeTimer: number | null = null
 
 function handleViewportResize() {
@@ -841,6 +937,7 @@ function handleViewportResize() {
   viewportResizeTimer = window.setTimeout(() => {
     viewportResizeTimer = null
     rebuildDanmakuForSettings()
+    refreshPanelAbove()
   }, 150)
 }
 
@@ -944,6 +1041,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleViewportResize)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
+  stopRailDrag()
   stopTimeDriver()
   destroyInstances()
   if (viewportResizeTimer !== null)
@@ -973,16 +1071,27 @@ provide(contentInjectionKey, {
     part="wrapper"
     popover="manual"
   >
-    <Transition name="move-in-right" mode="out-in">
+    <Transition :name="panelTransition" mode="out-in">
       <div
         v-if="initialized"
+        ref="railEl"
         :class="[
           prefix,
           {
             'active': showPopup || showSettings,
-            'idle-fullscreen': !isMoving && isFullscreen && !showPopup && !showSettings,
+            'is-left': bubbleSide === 'left',
+            'is-right': bubbleSide === 'right',
+            'is-dragging': isDraggingBubble,
+            'is-panel-above': panelAbove,
+            // 拖拽中必须排除：preventDefault 抑制了 compatibility mouse events，
+            // 全屏下 isMoving 会因为收不到 mousemove 而在 3s 后衰减，悬浮条会当场消失
+            'idle-fullscreen': !isMoving && isFullscreen && !showPopup && !showSettings
+              && !isDraggingBubble,
           },
         ]"
+        :style="railStyle"
+        @pointerdown="handleRailPointerDown"
+        @click.capture="handleRailClickCapture"
       >
         <div
           class="crx-float-bubble"
@@ -1028,7 +1137,7 @@ provide(contentInjectionKey, {
             <Operation />
           </el-icon>
         </div>
-        <Transition name="move-in-right">
+        <Transition :name="panelTransition">
           <div v-if="showPopup" :class="`${prefix}-popup`">
             <div :class="`${prefix}-popup__header`">
               <div :class="`${prefix}-popup__title`">
@@ -1139,7 +1248,7 @@ provide(contentInjectionKey, {
             <div v-else />
           </div>
         </Transition>
-        <Transition name="move-in-right">
+        <Transition :name="panelTransition">
           <div v-if="showSettings" :class="`${prefix}-settings`">
             <div :class="`${prefix}-settings__header`">
               <div :class="`${prefix}-settings__title`">
