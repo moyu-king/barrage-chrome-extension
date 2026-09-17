@@ -19,6 +19,7 @@ import elementPlusVars from 'element-plus/theme-chalk/el-var.css?raw'
 import { MessageType } from '@/background'
 import { useCatchMoveMouse } from '@/hooks/useCatchMouseMove'
 import { useDraggableRail } from '@/hooks/useDraggableRail'
+import { useIframeMouseBridge } from '@/hooks/useIframeMouseBridge'
 import { BarrageMode, Platform, resolveManualAddFromDocument } from '@/service'
 import { contentInjectionKey } from '@/symbol'
 import {
@@ -27,6 +28,7 @@ import {
   estimateBarrageWidth,
   filterBarragesForDisplay,
   getBarrageLineHeight,
+  MIN_BARRAGE_OPACITY,
   normalizeBarrageSettings,
 } from '@/utils/barrage-settings'
 import EpisodeList from './episode-list.vue'
@@ -264,10 +266,16 @@ chrome.runtime.onMessage.addListener((request) => {
 // 全屏处理
 const isFullscreen = ref(false)
 const { start, close, isMoving } = useCatchMoveMouse()
+const { start: startMouseBridge, stop: stopMouseBridge } = useIframeMouseBridge()
 
 let lastFullscreenEl: Element | null = null
 
 document.addEventListener('fullscreenchange', () => {
+  // 先无条件拆桥：下面每个早退分支（dialog/root 未就绪、拿不到 contentDocument）
+  // 与退出全屏分支都不会再把它装回来。桥若留在 iframe 文档上，退出全屏后仍会把
+  // iframe 坐标系里的事件投给顶层 window，让已经搬回顶层的滑块按错坐标算 diff。
+  stopMouseBridge()
+
   let root: HTMLElement | null | undefined
 
   if (lastFullscreenEl && lastFullscreenEl.tagName === 'IFRAME') {
@@ -300,6 +308,8 @@ document.addEventListener('fullscreenchange', () => {
       iframeDoc?.body.append(root)
       const video = iframeDoc.querySelector('video')
       video && start(video)
+      // 替 element-plus 把 iframe 里的鼠标事件转投到顶层 window，见 useIframeMouseBridge
+      startMouseBridge(iframeDoc, root)
     }
     else {
       fullscreenElement.appendChild(root)
@@ -383,7 +393,7 @@ const scrollComments = computed(() => {
       contentEl.style.lineHeight = `${barrageLineHeight.value}px`
       contentEl.style.fontSize = `${barrageSettings.fontSize}px`
       contentEl.style.color = '#fff'
-      contentEl.style.opacity = '0.85'
+      contentEl.style.opacity = `${barrageSettings.opacity / 100}`
       contentEl.style.textShadow = '-1px -1px rgba(0, 0, 0, 85%), 1px -1px rgba(0, 0, 0, 85%), -1px 1px rgba(0, 0, 0, 85%), 1px 1px rgba(0, 0, 0, 85%)'
       itemEl.appendChild(contentEl)
       return itemEl
@@ -419,7 +429,7 @@ const specialComments = computed(() => {
         itemEl.style.fontSize = `${barrageSettings.fontSize}px`
         itemEl.style.lineHeight = `${barrageLineHeight.value}px`
         itemEl.style.color = 'orange'
-        itemEl.style.opacity = '0.85'
+        itemEl.style.opacity = `${barrageSettings.opacity / 100}`
         itemEl.style.textShadow = '-1px -1px rgba(0, 0, 0, 85%), 1px -1px rgba(0, 0, 0, 85%), -1px 1px rgba(0, 0, 0, 85%), 1px 1px rgba(0, 0, 0, 85%)'
         return itemEl
       },
@@ -1042,6 +1052,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleViewportResize)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   stopRailDrag()
+  stopMouseBridge()
   stopTimeDriver()
   destroyInstances()
   if (viewportResizeTimer !== null)
@@ -1297,6 +1308,24 @@ provide(contentInjectionKey, {
                 <div :class="`${prefix}-settings__scale`">
                   <span>小</span>
                   <span>大</span>
+                </div>
+              </div>
+              <div :class="`${prefix}-settings__item`">
+                <div :class="`${prefix}-settings__label`">
+                  <span>不透明度</span>
+                  <strong>{{ barrageSettings.opacity }}%</strong>
+                </div>
+                <el-slider
+                  v-model="barrageSettings.opacity"
+                  :min="MIN_BARRAGE_OPACITY"
+                  :max="100"
+                  :step="5"
+                  :show-tooltip="false"
+                  @change="handleBarrageSettingChange"
+                />
+                <div :class="`${prefix}-settings__scale`">
+                  <span>透明</span>
+                  <span>不透明</span>
                 </div>
               </div>
               <div :class="`${prefix}-settings__item`">

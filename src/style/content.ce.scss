@@ -332,9 +332,14 @@
 
   &-settings {
     @include box-modifier;
+    display: flex;
+    flex-direction: column;
     position: absolute;
     right: 15px;
     top: 51px;
+    // 与 content.ce.vue 的 PANEL_HEIGHT 一致：面板高度不能超出判定预算，
+    // 否则 is-panel-above 的翻转会算错，内容再多也只让 __body 自己滚。
+    max-height: 500px;
     width: 330px;
     color: #1f2329;
     background-color: rgba(255, 255, 255, 98%);
@@ -343,6 +348,7 @@
 
     &__header {
       display: flex;
+      flex: none;
       align-items: center;
       justify-content: space-between;
       height: 40px;
@@ -360,9 +366,13 @@
 
     &__body {
       display: flex;
+      flex: 1;
       flex-direction: column;
       gap: 18px;
+      // 不加 min-height 的话 flex 项不会收缩，内容会把面板顶出 max-height
+      min-height: 0;
       padding: 18px 20px 14px;
+      overflow-y: auto;
     }
 
     &__item {
@@ -422,6 +432,7 @@
 
     &__footer {
       display: flex;
+      flex: none;
       justify-content: flex-end;
       padding: 10px 14px;
       border-top: 1px solid rgba(0, 0, 0, 8%);

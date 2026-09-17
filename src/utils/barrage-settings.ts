@@ -11,6 +11,8 @@ export interface BarragePlaybackSettings {
   displayArea: number
   density: number
   fontSize: number
+  /** 弹幕不透明度，百分比（10 ~ 100） */
+  opacity: number
 }
 
 export const DEFAULT_BARRAGE_SETTINGS: BarragePlaybackSettings = {
@@ -18,7 +20,12 @@ export const DEFAULT_BARRAGE_SETTINGS: BarragePlaybackSettings = {
   displayArea: 25,
   density: 60,
   fontSize: 16,
+  // 沿用引入该设置项之前的硬编码值，老用户观感不变
+  opacity: 85,
 }
+
+/** 参考 Bilibili：不透明度最低 10%，不允许拖到全透明 */
+export const MIN_BARRAGE_OPACITY = 10
 
 export const BASE_BARRAGE_SPEED = 144
 
@@ -95,6 +102,7 @@ export function normalizeBarrageSettings(
     displayArea,
     density: Math.round(clamp(Number(value?.density) || DEFAULT_BARRAGE_SETTINGS.density, 20, 100)),
     fontSize: Math.round(clamp(Number(value?.fontSize) || DEFAULT_BARRAGE_SETTINGS.fontSize, 12, 32)),
+    opacity: Math.round(clamp(Number(value?.opacity) || DEFAULT_BARRAGE_SETTINGS.opacity, MIN_BARRAGE_OPACITY, 100)),
   }
 }
 

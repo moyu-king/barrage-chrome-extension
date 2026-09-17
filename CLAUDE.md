@@ -41,7 +41,7 @@ Service Worker（`background.ts`）是消息路由器。它根据 `MessageType` 
 ### 数据层
 
 - **IndexedDB**（`barrage_database`，store `videos`）：持久化用户添加的视频条目（名称、平台、平台相关参数如 `cid`/`vid`/`tvid`）。通过 `getDB()` 惰性打开。
-- **chrome.storage.local**：持久化设置项。`floatBubbleOpened`（悬浮球显示/隐藏）由 popup 写入、content 读取，变更通过 `chrome.tabs.sendMessage`（`type: 'popup'`）在 content ↔ popup 之间同步；其余四项只有 content 读写，不同步 —— `isCustomPlay`（自动/自定义播放模式）、`barrageSettings`（弹幕速度/字号/区域/密度）、`episodeOrderDesc`（剧集正序/倒序）、`floatBubblePosition`（悬浮条停靠位置 `{ side: 'left' | 'right', top: number }`，top 为视口 px）。
+- **chrome.storage.local**：持久化设置项。`floatBubbleOpened`（悬浮球显示/隐藏）由 popup 写入、content 读取，变更通过 `chrome.tabs.sendMessage`（`type: 'popup'`）在 content ↔ popup 之间同步；其余四项只有 content 读写，不同步 —— `isCustomPlay`（自动/自定义播放模式）、`barrageSettings`（弹幕速度/字号/区域/密度/不透明度）、`episodeOrderDesc`（剧集正序/倒序）、`floatBubblePosition`（悬浮条停靠位置 `{ side: 'left' | 'right', top: number }`，top 为视口 px）。
 - **弹幕数据**：按需从平台 API 获取，缓存在内存中的 `barragesMap`（`Map<string, Barrage[]>`，以视频 `vid` 为键）。不持久化。
 
 ### 平台支持
@@ -95,8 +95,17 @@ Service Worker（`background.ts`）是消息路由器。它根据 `MessageType` 
 - 视口尺寸取 `rail.ownerDocument.documentElement.clientWidth/clientHeight`，不能用 `window.innerWidth/innerHeight`：`innerWidth` 含滚动条，且全屏时 `#crx-root` 会被搬进 iframe。
 - 纵向不越界由 CSS 的 `top: clamp(0px, var(--crx-rail-top, 18%), 100% - 36px)` 兜底，不需要在 load/resize/全屏三处写 JS 钳制。
 - 左停靠时内部布局也要镜像（`is-left` 下 `flex-direction: row-reverse`，图标容器再反向一次抵消）：镜像后气泡才紧贴停靠边，收起时探出来的是彩色气泡而不是一截图标，两侧收起后的观感一致。
-- 面板是悬浮条的绝对定位子元素，因此左停靠时要镜像（`is-left`），位置偏低时要翻到悬浮条上方（`is-panel-above`，判定见 `refreshPanelAbove`）；否则固定 500px 高的播放列表会掉出视口底部。
+- 面板是悬浮条的绝对定位子元素，因此左停靠时要镜像（`is-left`），位置偏低时要翻到悬浮条上方（`is-panel-above`，判定见 `refreshPanelAbove`）；否则固定 500px 高的播放列表会掉出视口底部。翻转判定拿的是常量 `PANEL_HEIGHT`（500），所以设置面板用 `max-height: 500px` + `__body` 内部滚动把高度钉死在预算内 —— 设置项只增不减，一旦让它按内容撑开，变高之后翻转就会算错（该翻不翻、翻了又顶出视口上沿）。
 - `idle-fullscreen` 的条件必须排除 `isDraggingBubble`：`preventDefault()` 抑制了按住期间的 compatibility mouse events，全屏下 `isMoving` 收不到信号会在 3s 后衰减，悬浮条会当场消失。
+
+### 全屏（iframe）适配
+
+`fullscreenchange` 处理器（`content.ce.vue`）会把 `#crx-root` 搬进全屏元素：全屏元素是同源 iframe 时搬进它的 `body`，并把 element-plus 的 CSS 变量以 `<style>` 注入该文档；否则直接 append 到全屏元素下。**DOM 换了文档，JS 仍在顶层 realm**，所以第三方代码里挂在裸 `window` / `document` 上的监听会全部失灵：
+
+- element-plus 的滑块拖拽就栽在这里：`use-slider-button` 把 `mousemove`/`mouseup`/`contextmenu` 挂在模块作用域的 `window`（顶层）上，而按下走的 `mousedown` 是元素上的（发生在 iframe 里），于是全屏下拖不动；`onDragEnd` 不执行还会让 `initData.dragging` 卡在 true，之后连点轨道都失效。`src/hooks/useIframeMouseBridge.ts` 因此在 iframe 文档上旁听鼠标/触摸事件、原样重投到顶层 `window` 来兜住它 —— 只在「按在插件 UI 里」的期间转发，且**坐标必须原样搬运**（element-plus 的滑块尺寸与按下起点都在 iframe 坐标系里）。触摸走同一条路但重投成鼠标事件：`getClientXY` 只在 type 以 `touch` 开头时才掏 `event.touches[0]`，空列表会直接抛异常。
+- 桥必须在 `fullscreenchange` 处理器**开头无条件 `stop()`**，再在 iframe 分支里 `start()`：处理器有多个早退分支，且退出全屏时若桥还在，会把 iframe 坐标系的事件投给已搬回顶层、按顶层坐标布局的滑块。
+- 已有先例：`useDraggableRail` 用 `el.ownerDocument.defaultView` 取窗口，视口尺寸一律取 `ownerDocument.documentElement.clientWidth/clientHeight`。
+- 尚未处理（同一原因，暂未影响功能）：全屏 iframe 下「添加视频」对话框的 ESC 关闭失效（element-plus 把 keydown 挂在顶层 `document` 上），其滚动锁与焦点恢复也作用在顶层 `document.body` 上；另外 `to="body"` 的传送目标解析的是全局 document，往 body 上 teleport 的组件在全屏下会不可见（现有 el-message / el-notification 都显式传了 `appendTo`，滑块也全部关掉了 tooltip）。
 
 ### Web Components（`.ce.vue` 文件）
 
