@@ -133,6 +133,7 @@ const barrageContainerStyle = computed(() => ({
 const barrageLineHeight = computed(() => getBarrageLineHeight(barrageSettings.fontSize))
 
 const displayAreaOptions = [
+  { label: '1/5', value: 20 },
   { label: '1/4', value: 25 },
   { label: '1/2', value: 50 },
   { label: '3/4', value: 75 },

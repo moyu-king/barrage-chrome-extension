@@ -93,7 +93,7 @@ export function normalizeBarrageSettings(
 ): BarragePlaybackSettings {
   const legacyArea = value?.rows ? value.rows / 24 * 100 : DEFAULT_BARRAGE_SETTINGS.displayArea
   const requestedArea = Number(value?.displayArea) || legacyArea
-  const displayArea = [25, 50, 75, 100].reduce((closest, candidate) => {
+  const displayArea = [20, 25, 50, 75, 100].reduce((closest, candidate) => {
     return Math.abs(candidate - requestedArea) < Math.abs(closest - requestedArea) ? candidate : closest
   }, DEFAULT_BARRAGE_SETTINGS.displayArea)
 
