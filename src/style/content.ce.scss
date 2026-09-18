@@ -506,7 +506,10 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: calc(100vw + 150px);
+  // 宽度必须等于视口宽：库按 (width - cmtWidth) >> 1 居中 top/bottom 弹幕，而 width 取的是
+  // container.offsetWidth。跟着滚动舞台一起 +150px 会让中线右移 (150 + 滚动条宽) / 2 ——
+  // 那 150px 只服务于从右侧屏外飞入的滚动弹幕。
+  width: 100%;
   height: 100%;
   line-height: 30px;
   pointer-events: none;
@@ -625,6 +628,17 @@
 
   &__label {
     white-space: nowrap;
+  }
+
+  // 与 .add-panel-item 同级而非子元素：那一层是 flex 行，提示得独占一行
+  &__hint {
+    padding: 9px 10px;
+    border-radius: 7px;
+    // 字面量：el-var.css 只被 @use 进全屏 iframe 那个文档，shadow 里没有 --el-color-warning
+    color: #e6a23c;
+    background-color: rgba(#e6a23c, 8%);
+    font-size: 11px;
+    line-height: 1.55;
   }
 
   .el-input {

@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import type { SearchResult, VideoCreateOpt } from '@/service'
+import type { SearchResult, Video, VideoCreateOpt } from '@/service'
 import { Loading, Search } from '@element-plus/icons-vue'
 import { MessageType } from '@/message-type'
-import { isSearchResultValid, matchManualAddPlatform } from '@/service'
+import { isSearchResultValid, matchManualAddPlatform, resolveManualAddFromUrl } from '@/service'
 import { Platform } from '@/service/base'
+import { buildVideoIdentityIndex, getVideoIdentity, hasIdentityOverlap } from '@/utils/video-identity'
+
+type CreateVideoResult
+  = | { ok: true, video: Video }
+    | { ok: false, message?: string }
 
 const platformOptions = [
   { label: 'bilibili', value: Platform.BILIBILI },
@@ -20,11 +25,49 @@ const errorMsg = ref('')
 const addingSet = ref<Set<string>>(new Set())
 let searchSeq = 0
 
+/* ==================== 已添加（判重） ==================== */
+const videos = ref<Video[]>([])
+const addedIdentity = computed(() => buildVideoIdentityIndex(videos.value))
+
+/**
+ * popup 每次打开都是新实例，挂载时拉一次列表即可。拿不到就放行：宁可漏判重复，
+ * 也不能因为缺数据把正常添加禁掉。
+ */
+function loadVideos() {
+  chrome.runtime.sendMessage({ type: MessageType.GET_VIDEOS }, (response) => {
+    if (chrome.runtime.lastError || !response?.data)
+      return
+
+    videos.value = response.data
+  })
+}
+
+loadVideos()
+
+function isAdded(result: SearchResult): boolean {
+  return hasIdentityOverlap(addedIdentity.value, getVideoIdentity(result.platform, result.params))
+}
+
 /* ==================== 当前页面（手动添加） ==================== */
 const pageTab = ref<{ id: number, url: string, title: string } | null>(null)
 const pageAdding = ref(false)
 
 const pagePlatform = computed(() => matchManualAddPlatform(pageTab.value?.url))
+
+/**
+ * 卡片只在 matchManualAddPlatform 通过时就出现，而这里要拿到真正的 params——
+ * 爱奇艺要读页面 DOM，popup 只能按 URL 近似解析，解不出来就不禁用。
+ */
+const pageAdded = computed(() => {
+  const tab = pageTab.value
+  if (!tab)
+    return false
+
+  const parsed = resolveManualAddFromUrl(tab.url, tab.title)
+
+  return parsed.ok
+    && hasIdentityOverlap(addedIdentity.value, getVideoIdentity(parsed.data.platform, parsed.data.params))
+})
 
 // 不搜索时结果区让位给「当前页面」卡片，可手动添加才显示
 const showPageCard = computed(() => (
@@ -81,7 +124,7 @@ watch(keyword, (value) => {
 /**
  * 创建视频并广播给内容脚本，搜索添加与手动添加共用
  */
-function sendCreateVideo(data: VideoCreateOpt): Promise<{ ok: boolean, message?: string }> {
+function sendCreateVideo(data: VideoCreateOpt): Promise<CreateVideoResult> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({
       type: MessageType.CREATE_VIDEO,
@@ -101,7 +144,7 @@ function sendCreateVideo(data: VideoCreateOpt): Promise<{ ok: boolean, message?:
         type: MessageType.SYNC_CONTENT_DATA,
         video: response.data,
       })
-      resolve({ ok: true })
+      resolve({ ok: true, video: response.data })
     })
   })
 }
@@ -169,10 +212,14 @@ async function addVideo(result: SearchResult) {
 
   addingSet.value = new Set([...addingSet.value].filter(k => k !== key))
 
-  if (res.ok)
+  if (res.ok) {
+    // 并进本地列表，按钮当场翻成「已添加」；页面侧另有 broadcast 出去的 SYNC_CONTENT_DATA 管
+    videos.value = [...videos.value, res.video]
     ElMessage.success('添加成功')
-  else
+  }
+  else {
     ElMessage.error(res.message || '添加失败')
+  }
 }
 
 /**
@@ -247,10 +294,12 @@ function handlePageAdd() {
             <el-button
               size="small"
               type="primary"
+              :disabled="pageAdded"
               :loading="pageAdding"
+              :title="pageAdded ? '该视频已添加' : undefined"
               @click="handlePageAdd"
             >
-              添加
+              {{ pageAdded ? '已添加' : '添加' }}
             </el-button>
           </div>
         </div>
@@ -304,10 +353,12 @@ function handlePageAdd() {
             <el-button
               size="small"
               type="primary"
+              :disabled="isAdded(result)"
               :loading="addingSet.has(getResultKey(result))"
+              :title="isAdded(result) ? '该视频已添加' : undefined"
               @click="addVideo(result)"
             >
-              添加
+              {{ isAdded(result) ? '已添加' : '添加' }}
             </el-button>
           </div>
         </div>

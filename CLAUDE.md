@@ -114,7 +114,7 @@ background 的路由是单个 `chrome.runtime.onMessage.addListener` 里的 `swi
 
 `floatBubblePosition.top` 是**视口 px**；`restoreBubblePosition` 会校验两个字段并拒绝非有限的 `top`。`content.ce.vue` 在初始化时用一次 `chrome.storage.local.get([...])` 批量读 4 个键（不含 `floatBubbleOpened`），读完才把 `initialized` 置为 `true` —— **`initialized` 才是悬浮条的挂载开关**，所以这个顺序不能调。
 
-注意 `popup.vue` 里 `isCustomPlay` 的 watcher 带 `{ immediate: true }`（`floatBubbleOpened` 的不带），因此每次打开 popup 都会重写一次并广播。
+`popup.vue` 的 `floatBubbleOpened` 与 `isCustomPlay` 两个 watcher 都**不带 `immediate`**：只有用户真正拨动开关时才写 storage 并广播。`isCustomPlay` 曾带 `{ immediate: true }`，后果是每次打开 popup 都无条件广播一次存储的模式 —— 内容脚本收到后会走 `setCustomPlay()` 重跑媒体识别，把已经自动降级（见「渲染」）的页面反复拽回注定失败的自动模式并重复弹提示。
 
 **弹幕数据**：按需从平台 API 获取，缓存在内存中的 `barragesMap`（`Map<string, Barrage[]>`，以剧集 `vid` 为键）。不持久化。
 
@@ -200,9 +200,11 @@ background 的路由是单个 `chrome.runtime.onMessage.addListener` 里的 `swi
 - **`danmaku`** —— 滚动弹幕，`speed: BASE_BARRAGE_SPEED * barrageSettings.speed`
 - **`specialDanmaku`** —— 顶部/底部固定弹幕，**`speed` 硬编码 500**，不乘 `barrageSettings.speed`
 
+两者各有一个舞台：`scrollBarrageEl`（`.crx-barrage-scroll`，`width: calc(100vw + 150px)`）与 `specialBarrageEl`（`.crx-barrage-custom`，`width: 100%`）。**两个宽度有意不同，别顺手对齐**：库给 top/bottom 弹幕算的水平位置是 `(width - cmtWidth) >> 1`，而 `width` 取 `container.offsetWidth`，所以固定弹幕的舞台必须是视口宽（fixed 元素的 `100%` 不含经典滚动条），否则中线会右移 `(150 + 滚动条宽) / 2`；滚动舞台那多出的 150px 则是为了让弹幕从右侧屏外飞入。注意 `_.duration = _.width / _.speed` 同时当固定弹幕的停留时长用，改舞台宽度会连带改掉它。
+
 两者共享一个媒体元素（自动模式用真实的 `<video>`，自定义模式用 `fakeMedia`）。生命周期三个函数分工明确：
 
-- `initDanmaku()` —— 一起创建。内部先解析媒体元素：非自定义模式找页面 `<video>`，找不到再扫同源 iframe；仍然没有就弹 `ElNotification` 并**直接赋值 `isCustomPlay.value = true` 回退到自定义模式**（这里刻意不走 `setCustomPlay`）。Danmaku 库构造函数内部会调用 `resize()`，因此仅在视口/布局变化后才需要显式 `resize()`。
+- `initDanmaku()` —— 一起创建。内部先解析媒体元素：非自定义模式找页面 `<video>`，找不到再扫同源 iframe；仍然没有就弹 `ElNotification` 并**直接赋值 `isCustomPlay.value = true` 回退到自定义模式**（这里刻意不走 `setCustomPlay`；降级也**只写本地 ref、不写 storage**，所以 storage 里仍是「自动」—— 本页的真实模式看悬浮球气泡上的 `A`/`C`，popup 的开关只是设置本身）。Danmaku 库构造函数内部会调用 `resize()`，因此仅在视口/布局变化后才需要显式 `resize()`。
 - `destroyInstances()` —— 只销毁实例、清 `loadedVId`，**不动时间也不动播放态**。
 - `destroyDanmaku(resetTime = true)` —— 在 `destroyInstances()` 之上停表 + `isPlaying = false` + 复位时间。
 

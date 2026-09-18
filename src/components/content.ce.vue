@@ -31,6 +31,7 @@ import {
   MIN_BARRAGE_OPACITY,
   normalizeBarrageSettings,
 } from '@/utils/barrage-settings'
+import { buildVideoIdentityIndex, getVideoIdentity, hasIdentityOverlap } from '@/utils/video-identity'
 import EpisodeList from './episode-list.vue'
 import VideoList from './video-list.ce.vue'
 
@@ -960,6 +961,12 @@ const formData = reactive({
   platform: Platform.BILIBILI,
 })
 
+// popup 那份身份只能按 URL 近似解析（爱奇艺要读 DOM），页面侧这份才是权威的
+const addedIdentity = computed(() => buildVideoIdentityIndex(videos.value))
+const addPanelDuplicated = computed(() => (
+  hasIdentityOverlap(addedIdentity.value, getVideoIdentity(formData.platform, formData.params))
+))
+
 function saveVideo() {
   chrome.runtime.sendMessage({
     type: MessageType.CREATE_VIDEO,
@@ -1391,12 +1398,15 @@ provide(contentInjectionKey, {
         </div>
         <el-input v-model="formData.name" />
       </div>
+      <div v-if="addPanelDuplicated" class="add-panel-item__hint">
+        列表中已有相同视频，无需重复添加
+      </div>
       <template #footer>
         <div>
           <el-button @click="showAddPanel = false">
             取消
           </el-button>
-          <el-button type="primary" @click="saveVideo">
+          <el-button type="primary" :disabled="addPanelDuplicated" @click="saveVideo">
             保存
           </el-button>
         </div>
@@ -1406,5 +1416,5 @@ provide(contentInjectionKey, {
 </template>
 
 <style lang="scss">
-@use "../style/content.ce.scss"
+@use "../style/content.ce.scss";
 </style>

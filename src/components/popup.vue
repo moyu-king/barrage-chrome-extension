@@ -31,7 +31,7 @@ chrome.storage.local.get(['floatBubbleOpened', 'isCustomPlay']).then((result) =>
   watch(isCustomPlay, (val) => {
     chrome.storage.local.set({ isCustomPlay: val })
     sendMsgToAllContent({ isCustomPlay: val })
-  }, { immediate: true })
+  })
 })
 
 function sendMsgToAllContent(msg: Record<string, any>) {
